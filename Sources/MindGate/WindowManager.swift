@@ -19,7 +19,7 @@ class WindowManager: ObservableObject {
     
     // MARK: - Orb Panel Setup
     private func setupOrbPanel() {
-        let orbView = OrbView()
+        var orbView = OrbView()
         orbView.windowManager = self
         
         orbHostingController = NSHostingController(rootView: orbView)

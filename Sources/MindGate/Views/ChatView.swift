@@ -75,17 +75,23 @@ struct ChatView: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Configuration.Colors.textSecondary)
             
-            TextEditor(text: $userInput)
-                .font(.system(size: 14))
-                .foregroundColor(Configuration.Colors.text)
-                .backgroundColor(Configuration.Colors.surface)
-                .cornerRadius(8)
-                .frame(height: 100)
-                .padding(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Configuration.Colors.textSecondary.opacity(0.2), lineWidth: 1)
-                )
+            ZStack(alignment: .topLeading) {
+                Configuration.Colors.surface
+                    .cornerRadius(8)
+                
+                TextEditor(text: $userInput)
+                    .font(.system(size: 14))
+                    .foregroundColor(Configuration.Colors.text)
+                    .background(Color.clear)
+                    .cornerRadius(8)
+                    .frame(height: 100)
+                    .padding(8)
+                    .scrollContentBackground(.hidden)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Configuration.Colors.textSecondary.opacity(0.2), lineWidth: 1)
+            )
             
             Button(action: submitRequest) {
                 Text("Submit")

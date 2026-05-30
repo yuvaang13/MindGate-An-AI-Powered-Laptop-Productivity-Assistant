@@ -1,5 +1,6 @@
 import Foundation
 import ApplicationServices
+import AppKit
 
 class AccessibilityManager {
     func hasAccessibilityPermissions() -> Bool {
