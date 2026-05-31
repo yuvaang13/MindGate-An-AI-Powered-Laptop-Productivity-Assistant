@@ -42,10 +42,15 @@ class AccessibilityManager {
         var windowsRef: AnyObject?
         let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
         
+        print("🔧 AXUIElementCopyAttributeValue result: \(result.rawValue)")
+        
         guard result == .success,
               let windows = windowsRef as? [AXUIElement] else {
+            print("❌ Failed to get windows or windows array is empty")
             return []
         }
+        
+        print("✅ Got \(windows.count) windows")
         
         var titles: [String] = []
         for window in windows {
@@ -55,9 +60,18 @@ class AccessibilityManager {
             if titleResult == .success,
                let title = titleRef as? String {
                 titles.append(title)
+                print("📄 Window title: \(title)")
             }
         }
         
         return titles
+    }
+    
+    func testAccessibilityForApp(_ application: NSRunningApplication) -> Bool {
+        let appElement = AXUIElementCreateApplication(application.processIdentifier)
+        var windowsRef: AnyObject?
+        let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
+        
+        return result == .success
     }
 }

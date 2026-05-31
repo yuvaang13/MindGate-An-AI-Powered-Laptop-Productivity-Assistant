@@ -37,7 +37,8 @@ class WorkspaceMonitor {
         }
         
         let appName = app.localizedName ?? ""
-        print("📱 App activated: \(appName)")
+        let bundleID = app.bundleIdentifier ?? ""
+        print("📱 App activated: \(appName) (Bundle: \(bundleID))")
         
         // Check if app is distracting
         if Configuration.distractingApps.contains(appName) {
@@ -50,13 +51,28 @@ class WorkspaceMonitor {
         }
         
         // Check if it's a browser with restricted content
-        if Configuration.monitoredBrowsers.contains(appName) {
+        let isBrowser = Configuration.monitoredBrowsers.contains(appName) || 
+                       bundleID.contains("chrome") || 
+                       bundleID.contains("safari") ||
+                       bundleID.contains("firefox") ||
+                       bundleID.contains("brave") ||
+                       bundleID.contains("edge")
+        
+        if isBrowser {
             print("🌐 Browser detected: \(appName)")
             checkBrowserContent(app: app)
         }
     }
     
     private func checkBrowserContent(app: NSRunningApplication) {
+        let canAccess = accessibilityManager.testAccessibilityForApp(app)
+        print("🔐 Can access browser windows: \(canAccess)")
+        
+        if !canAccess {
+            print("❌ Accessibility permissions not working for browser")
+            return
+        }
+        
         let windowTitles = accessibilityManager.getAllWindowTitles(for: app)
         
         print("🔍 Browser window titles: \(windowTitles)")
