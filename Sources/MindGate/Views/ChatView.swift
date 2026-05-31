@@ -2,13 +2,14 @@ import SwiftUI
 
 struct ChatView: View {
     weak var windowManager: WindowManager?
-    
+    let decisionEngine: DecisionEngine
+
     @State private var userInput: String = ""
     @State private var isLoading: Bool = false
     @State private var aiResponse: String = ""
     @State private var showDurationSelection: Bool = false
     @State private var showDeniedMessage: Bool = false
-    
+
     var body: some View {
         VStack(spacing: 20) {
             // Header
@@ -16,9 +17,9 @@ struct ChatView: View {
                 Text("MindGate")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Configuration.Colors.text)
-                
+
                 Spacer()
-                
+
                 Button(action: {
                     withAnimation(.easeInOut(duration: Configuration.Animation.orbTransitionDuration)) {
                         windowManager?.collapseOrb()
@@ -32,10 +33,10 @@ struct ChatView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
-            
+
             Divider()
                 .background(Configuration.Colors.textSecondary.opacity(0.2))
-            
+
             // Content
             if showDurationSelection {
                 durationSelectionView
@@ -48,7 +49,7 @@ struct ChatView: View {
             } else {
                 inputView
             }
-            
+
             Spacer()
         }
         .background(
@@ -68,17 +69,17 @@ struct ChatView: View {
         )
         .shadow(color: Configuration.Colors.primary.opacity(0.3), radius: 20, x: 0, y: 10)
     }
-    
+
     private var inputView: some View {
         VStack(spacing: 16) {
             Text("Why do you need access?")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Configuration.Colors.textSecondary)
-            
+
             ZStack(alignment: .topLeading) {
                 Configuration.Colors.surface
                     .cornerRadius(8)
-                
+
                 TextEditor(text: $userInput)
                     .font(.system(size: 14))
                     .foregroundColor(Configuration.Colors.text)
@@ -92,7 +93,7 @@ struct ChatView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(Configuration.Colors.textSecondary.opacity(0.2), lineWidth: 1)
             )
-            
+
             Button(action: submitRequest) {
                 Text("Submit")
                     .font(.system(size: 14, weight: .semibold))
@@ -113,20 +114,20 @@ struct ChatView: View {
         }
         .padding(20)
     }
-    
+
     private var loadingView: some View {
         VStack(spacing: 16) {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: Configuration.Colors.accent))
                 .scaleEffect(1.5)
-            
+
             Text("AI is thinking...")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Configuration.Colors.textSecondary)
         }
         .padding(20)
     }
-    
+
     private var responseView: some View {
         VStack(spacing: 16) {
             Text(aiResponse)
@@ -134,7 +135,7 @@ struct ChatView: View {
                 .foregroundColor(Configuration.Colors.text)
                 .multilineTextAlignment(.center)
                 .padding()
-            
+
             Button(action: {
                 windowManager?.collapseOrb()
                 resetState()
@@ -150,17 +151,17 @@ struct ChatView: View {
         }
         .padding(20)
     }
-    
+
     private var durationSelectionView: some View {
         VStack(spacing: 16) {
             Text("Access Granted")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Configuration.Colors.accent)
-            
+
             Text("Choose duration:")
                 .font(.system(size: 14))
                 .foregroundColor(Configuration.Colors.textSecondary)
-            
+
             HStack(spacing: 12) {
                 ForEach(0..<Configuration.accessDurationLabels.count, id: \.self) { index in
                     Button(action: {
@@ -185,17 +186,17 @@ struct ChatView: View {
         }
         .padding(20)
     }
-    
+
     private var deniedMessageView: some View {
         VStack(spacing: 16) {
             Image(systemName: "xmark.shield.fill")
                 .font(.system(size: 40))
                 .foregroundColor(.red)
-            
+
             Text("Access Denied")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.red)
-            
+
             Text("Stay focused and return to work.")
                 .font(.system(size: 14))
                 .foregroundColor(Configuration.Colors.textSecondary)
@@ -203,28 +204,27 @@ struct ChatView: View {
         }
         .padding(20)
     }
-    
+
     private func submitRequest() {
         isLoading = true
-        
+
         Task { @MainActor in
             do {
-                let decisionEngine = DecisionEngine.shared
                 let result = try await decisionEngine.evaluateRequest(userInput: userInput)
-                
+
                 isLoading = false
                 aiResponse = result.message
-                
+
                 if result.isApproved {
                     showDurationSelection = true
                 } else {
                     showDeniedMessage = true
-                    
+
                     // Trigger overlay and app hiding after delay
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         windowManager?.showOverlay()
-                        DecisionEngine.shared.hideCurrentApp()
-                        
+                        decisionEngine.hideCurrentApp()
+
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
                             windowManager?.hideOverlay()
                             windowManager?.hideOrb()
@@ -238,15 +238,15 @@ struct ChatView: View {
             }
         }
     }
-    
+
     private func selectDuration(index: Int) {
         let duration = Configuration.accessDurations[index]
-        DecisionEngine.shared.grantAccess(for: duration)
-        
+        decisionEngine.grantAccess(for: duration)
+
         windowManager?.hideOrb()
         resetState()
     }
-    
+
     private func resetState() {
         userInput = ""
         aiResponse = ""

@@ -5,7 +5,7 @@ A futuristic, on-device AI productivity assistant for macOS that helps you stay 
 ## Features
 
 - **AI Orb Interface**: A futuristic, breathing AI orb that appears when you visit distracting content
-- **Local AI Evaluation**: Uses Ollama (phi3 or llama3) running locally to evaluate your access requests
+- **Local AI Evaluation**: Uses Ollama with llama3.1 running locally to evaluate your access requests
 - **Smart Access Control**: AI decides whether to grant access (with time limits) or block the distraction
 - **Seamless Integration**: Runs as a background agent without a Dock icon
 - **Browser Monitoring**: Tracks Safari and Chrome for distracting keywords
@@ -24,17 +24,15 @@ A futuristic, on-device AI productivity assistant for macOS that helps you stay 
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yuvaang13/An-AI-Powered-Laptop-Productivity-Assistant.git
-cd An-AI-Powered-Laptop-Productivity-Assistant
+git clone https://github.com/yuvaang13/MindGate-An-AI-Powered-Laptop-Productivity-Assistant.git
+cd MindGate-An-AI-Powered-Laptop-Productivity-Assistant
 ```
 
 2. Install Ollama if you haven't already:
 ```bash
 # Visit https://ollama.ai to download and install Ollama
 # Then pull a model:
-ollama pull phi3
-# or
-ollama pull llama3
+ollama pull llama3.1
 ```
 
 3. Build the project:

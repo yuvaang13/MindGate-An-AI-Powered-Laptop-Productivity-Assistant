@@ -7,7 +7,7 @@ Since GitHub CLI (gh) is not available on your system, follow these steps to cre
 1. Go to https://github.com and sign in to your account
 2. Click the "+" icon in the top-right corner
 3. Select "New repository"
-4. Repository name: `An-AI-Powered-Laptop-Productivity-Assistant`
+4. Repository name: `MindGate-An-AI-Powered-Laptop-Productivity-Assistant`
 5. Description: `AI-powered macOS productivity assistant with local Ollama integration`
 6. Make it **Public**
 7. **Do not** initialize with README, .gitignore, or license (we already have these)
@@ -20,7 +20,7 @@ After creating the repository, GitHub will show you instructions. Run these comm
 ```bash
 cd /Users/Yuvi10/Desktop/laptop_productivity_app
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/An-AI-Powered-Laptop-Productivity-Assistant.git
+git remote add origin https://github.com/YOUR_USERNAME/MindGate-An-AI-Powered-Laptop-Productivity-Assistant.git
 git push -u origin main
 ```
 
@@ -30,7 +30,7 @@ git push -u origin main
 
 After pushing, visit your repository at:
 ```
-https://github.com/YOUR_USERNAME/An-AI-Powered-Laptop-Productivity-Assistant
+https://github.com/YOUR_USERNAME/MindGate-An-AI-Powered-Laptop-Productivity-Assistant
 ```
 
 You should see all your files committed and the README displayed on the repository page.
@@ -40,7 +40,7 @@ You should see all your files committed and the README displayed on the reposito
 If you prefer SSH instead of HTTPS:
 
 ```bash
-git remote add origin git@github.com:YOUR_USERNAME/An-AI-Powered-Laptop-Productivity-Assistant.git
+git remote add origin git@github.com:YOUR_USERNAME/MindGate-An-AI-Powered-Laptop-Productivity-Assistant.git
 git push -u origin main
 ```
 
@@ -56,7 +56,7 @@ If you encounter authentication issues with HTTPS:
 
 Once set up, your repository will be available at:
 ```
-https://github.com/YOUR_USERNAME/An-AI-Powered-Laptop-Productivity-Assistant
+https://github.com/YOUR_USERNAME/MindGate-An-AI-Powered-Laptop-Productivity-Assistant
 ```
 
 Update the README.md file to replace `YOUR_USERNAME` with your actual GitHub username in the clone URL.

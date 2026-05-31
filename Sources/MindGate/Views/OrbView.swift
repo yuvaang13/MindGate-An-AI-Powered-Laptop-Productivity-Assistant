@@ -5,12 +5,22 @@ struct OrbView: View {
     @State private var scale: CGFloat = 1.0
     @State private var glowIntensity: Double = 0.5
     @State private var rotation: Double = 0.0
-    
+
     weak var windowManager: WindowManager?
-    
+    let decisionEngine: DecisionEngine
+
+    init(windowManager: WindowManager?, decisionEngine: DecisionEngine) {
+        self.windowManager = windowManager
+        self.decisionEngine = decisionEngine
+    }
+
     var body: some View {
         ZStack {
-            if windowManager?.isOrbExpanded == false {
+            if windowManager?.isOrbExpanded ?? false {
+                // Expanded Chat Interface
+                ChatView(windowManager: windowManager, decisionEngine: decisionEngine)
+                    .frame(width: Configuration.Dimensions.orbExpandedWidth, height: Configuration.Dimensions.orbExpandedHeight)
+            } else {
                 // Compact Orb
                 orbBody
                     .frame(width: Configuration.Dimensions.orbSize, height: Configuration.Dimensions.orbSize)
@@ -19,14 +29,10 @@ struct OrbView: View {
                             windowManager?.expandOrb()
                         }
                     }
-            } else {
-                // Expanded Chat Interface
-                ChatView(windowManager: windowManager)
-                    .frame(width: Configuration.Dimensions.orbExpandedWidth, height: Configuration.Dimensions.orbExpandedHeight)
             }
         }
     }
-    
+
     private var orbBody: some View {
         ZStack {
             // Outer glow
@@ -45,7 +51,7 @@ struct OrbView: View {
                 )
                 .frame(width: 100, height: 100)
                 .blur(radius: 10)
-            
+
             // Main orb
             Circle()
                 .fill(
@@ -84,13 +90,13 @@ struct OrbView: View {
             startBreathingAnimation()
         }
     }
-    
+
     private func startBreathingAnimation() {
         withAnimation(.easeInOut(duration: Configuration.Animation.orbBreathingDuration).repeatForever(autoreverses: true)) {
             scale = 1.1
             glowIntensity = 0.8
         }
-        
+
         withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
             rotation = 360.0
         }
