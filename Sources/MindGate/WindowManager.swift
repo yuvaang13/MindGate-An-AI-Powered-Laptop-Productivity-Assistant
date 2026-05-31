@@ -91,8 +91,10 @@ class WindowManager: ObservableObject {
         let orbSize = isOrbExpanded ? Configuration.Dimensions.orbExpandedWidth : Configuration.Dimensions.orbSize
         let orbHeight = isOrbExpanded ? Configuration.Dimensions.orbExpandedHeight : Configuration.Dimensions.orbSize
 
-        let x = screenFrame.maxX - orbSize - 20
-        let y = screenFrame.maxY - orbHeight - 20
+        let xOffset: CGFloat = isOrbExpanded ? 34 : 14
+        let yOffset: CGFloat = isOrbExpanded ? 22 : 14
+        let x = screenFrame.maxX - orbSize + xOffset
+        let y = screenFrame.maxY - orbHeight + yOffset
 
         orbPanel?.setFrameOrigin(NSPoint(x: x, y: y))
 
@@ -110,7 +112,9 @@ class WindowManager: ObservableObject {
     // MARK: - Orb Control
     func showOrb() {
         print("🔮 Showing Orb...")
+        isOrbExpanded = true
         positionOrbPanel()
+        refreshOrbView()
 
         guard let panel = orbPanel else {
             print("❌ Orb panel is nil")

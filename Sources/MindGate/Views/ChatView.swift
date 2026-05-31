@@ -13,21 +13,51 @@ struct ChatView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            VStack(spacing: 18) {
-                MindGateOrb(size: 116)
-                    .padding(.top, 6)
+            PremiumCircleTexture()
+
+            VStack(spacing: 14) {
+                Spacer(minLength: 34)
+
+                Text(headlineText)
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .foregroundColor(.black.opacity(0.84))
+                    .multilineTextAlignment(.center)
+
+                Text("Explain the work reason. I’ll decide fast.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.black.opacity(0.48))
+                    .multilineTextAlignment(.center)
+                    .opacity(showDurationSelection || showDeniedMessage || isLoading ? 0 : 1)
 
                 contentView
                     .frame(maxWidth: .infinity)
 
-                Spacer()
+                Spacer(minLength: 30)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 34)
+            .padding(.vertical, 18)
 
             closeButton
         }
-        .background(Color.clear)
+        .clipShape(Circle())
+        .contentShape(Circle())
+        .overlay(
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.82),
+                            Configuration.Colors.accent.opacity(0.38),
+                            Configuration.Colors.primary.opacity(0.3)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.4
+                )
+        )
+        .shadow(color: Configuration.Colors.primary.opacity(0.2), radius: 28, x: 0, y: 12)
+        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: 10)
     }
 
     @ViewBuilder
@@ -45,6 +75,22 @@ struct ChatView: View {
         }
     }
 
+    private var headlineText: String {
+        if showDurationSelection {
+            return "Access granted"
+        }
+
+        if showDeniedMessage {
+            return "Access denied"
+        }
+
+        if isLoading {
+            return "Checking with Llama"
+        }
+
+        return "Why are you here?"
+    }
+
     private var closeButton: some View {
         Button(action: {
             withAnimation(.easeInOut(duration: Configuration.Animation.orbTransitionDuration)) {
@@ -53,14 +99,14 @@ struct ChatView: View {
         }) {
             Image(systemName: "xmark")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Configuration.Colors.text.opacity(0.78))
+                .foregroundColor(.black.opacity(0.58))
                 .frame(width: 30, height: 30)
-                .background(Circle().fill(Configuration.Colors.background.opacity(0.34)))
-                .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
+                .background(Circle().fill(Color.white.opacity(0.58)))
+                .overlay(Circle().stroke(Color.white.opacity(0.78), lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .padding(.top, 2)
-        .padding(.trailing, 2)
+        .padding(.top, 42)
+        .padding(.trailing, 48)
     }
 
     private var inputView: some View {
@@ -78,7 +124,7 @@ struct ChatView: View {
 
             Text("AI is thinking...")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Configuration.Colors.textSecondary)
+                .foregroundColor(.black.opacity(0.58))
         }
         .padding(.top, 10)
     }
@@ -87,7 +133,7 @@ struct ChatView: View {
         VStack(spacing: 14) {
             Text(aiResponse)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Configuration.Colors.text)
+                .foregroundColor(.black.opacity(0.72))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 6)
@@ -106,13 +152,9 @@ struct ChatView: View {
 
     private var durationSelectionView: some View {
         VStack(spacing: 14) {
-            Text("Access Granted")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Configuration.Colors.accent)
-
             Text("Choose duration:")
                 .font(.system(size: 13))
-                .foregroundColor(Configuration.Colors.textSecondary)
+                .foregroundColor(.black.opacity(0.52))
 
             HStack(spacing: 8) {
                 ForEach(0..<Configuration.accessDurationLabels.count, id: \.self) { index in
@@ -135,13 +177,9 @@ struct ChatView: View {
                 .font(.system(size: 34))
                 .foregroundColor(.red)
 
-            Text("Access Denied")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(.red)
-
             Text("Stay focused and return to work.")
                 .font(.system(size: 13))
-                .foregroundColor(Configuration.Colors.textSecondary)
+                .foregroundColor(.black.opacity(0.52))
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 6)
@@ -151,10 +189,10 @@ struct ChatView: View {
         HStack(alignment: .bottom, spacing: 10) {
             ReliablePromptTextView(
                 text: $userInput,
-                placeholder: "Why do you need access?",
+                placeholder: "I need this because...",
                 onSubmit: submitRequest
             )
-            .frame(height: 82)
+            .frame(height: 76)
 
             Button(action: submitRequest) {
                 Image(systemName: "arrow.up")
@@ -163,9 +201,9 @@ struct ChatView: View {
                     .frame(width: 34, height: 34)
                     .background(
                         Circle()
-                            .fill(canSubmit ? Configuration.Colors.accent : Configuration.Colors.textSecondary.opacity(0.24))
+                            .fill(canSubmit ? Configuration.Colors.primary : Color.black.opacity(0.16))
                     )
-                    .overlay(Circle().stroke(Color.white.opacity(canSubmit ? 0.22 : 0.08), lineWidth: 1))
+                    .overlay(Circle().stroke(Color.white.opacity(canSubmit ? 0.58 : 0.24), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .disabled(!canSubmit)
@@ -174,16 +212,16 @@ struct ChatView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Configuration.Colors.background.opacity(0.58))
+                .fill(Color.white.opacity(0.74))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Configuration.Colors.accent.opacity(0.44),
-                            Configuration.Colors.primary.opacity(0.28),
-                            Color.white.opacity(0.08)
+                            Color.white.opacity(0.92),
+                            Configuration.Colors.accent.opacity(0.22),
+                            Configuration.Colors.primary.opacity(0.18)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -191,7 +229,7 @@ struct ChatView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: Configuration.Colors.background.opacity(0.35), radius: 18, x: 0, y: 10)
+        .shadow(color: Color.black.opacity(0.1), radius: 16, x: 0, y: 9)
     }
 
     private var canSubmit: Bool {
@@ -254,7 +292,7 @@ private struct MinimalActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Self.Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(.black.opacity(0.76))
             .padding(.horizontal, 13)
             .frame(height: 36)
             .background(
@@ -262,8 +300,8 @@ private struct MinimalActionButtonStyle: ButtonStyle {
                     .fill(
                         LinearGradient(
                             colors: [
-                                AppThemeColors.accent.opacity(configuration.isPressed ? 0.75 : 0.95),
-                                AppThemeColors.primary.opacity(configuration.isPressed ? 0.7 : 0.9)
+                                Color.white.opacity(configuration.isPressed ? 0.62 : 0.82),
+                                AppThemeColors.accent.opacity(configuration.isPressed ? 0.22 : 0.34)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -272,13 +310,85 @@ private struct MinimalActionButtonStyle: ButtonStyle {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.82), lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
     }
 }
 
 private typealias AppThemeColors = Configuration.Colors
+
+private struct PremiumCircleTexture: View {
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.98, green: 1.0, blue: 0.98),
+                                Color(red: 0.86, green: 0.97, blue: 1.0),
+                                Color(red: 0.96, green: 0.9, blue: 1.0)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                movingBlob(
+                    color: Configuration.Colors.accent.opacity(0.34),
+                    size: 230,
+                    x: CGFloat(sin(time * 0.7)) * 54,
+                    y: CGFloat(cos(time * 0.58)) * 42
+                )
+
+                movingBlob(
+                    color: Configuration.Colors.primary.opacity(0.3),
+                    size: 260,
+                    x: CGFloat(cos(time * 0.48)) * 62,
+                    y: CGFloat(sin(time * 0.64)) * 52
+                )
+
+                movingBlob(
+                    color: Color(red: 1.0, green: 0.42, blue: 0.74).opacity(0.24),
+                    size: 210,
+                    x: CGFloat(sin(time * 0.52 + 1.2)) * 76,
+                    y: CGFloat(cos(time * 0.44 + 0.8)) * 56
+                )
+
+                Circle()
+                    .stroke(Color.white.opacity(0.62), lineWidth: 18)
+                    .blur(radius: 18)
+                    .scaleEffect(0.9 + CGFloat(sin(time * 0.6)) * 0.025)
+
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.42),
+                                Color.white.opacity(0.16),
+                                Color.clear
+                            ],
+                            center: .topLeading,
+                            startRadius: 10,
+                            endRadius: 220
+                        )
+                    )
+            }
+        }
+    }
+
+    private func movingBlob(color: Color, size: CGFloat, x: CGFloat, y: CGFloat) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: size, height: size)
+            .blur(radius: 34)
+            .offset(x: x, y: y)
+            .blendMode(.multiply)
+    }
+}
 
 private struct ReliablePromptTextView: NSViewRepresentable {
     @Binding var text: String
@@ -306,8 +416,8 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         textView.isAutomaticTextReplacementEnabled = false
         textView.allowsUndo = true
         textView.font = NSFont.systemFont(ofSize: 14, weight: .regular)
-        textView.textColor = NSColor.white
-        textView.insertionPointColor = NSColor.white
+        textView.textColor = NSColor.black.withAlphaComponent(0.78)
+        textView.insertionPointColor = NSColor.black
         textView.backgroundColor = .clear
         textView.drawsBackground = false
         textView.textContainerInset = NSSize(width: 0, height: 7)
@@ -383,7 +493,7 @@ private final class PlaceholderTextView: NSTextView {
         guard string.isEmpty else { return }
 
         let attributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: NSColor.white.withAlphaComponent(0.48),
+            .foregroundColor: NSColor.black.withAlphaComponent(0.42),
             .font: NSFont.systemFont(ofSize: 14, weight: .regular)
         ]
         placeholder.draw(
