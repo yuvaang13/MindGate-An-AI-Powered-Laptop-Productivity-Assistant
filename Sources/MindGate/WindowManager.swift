@@ -32,17 +32,19 @@ class WindowManager: ObservableObject {
         )
         
         panel.isFloatingPanel = true
-        panel.level = .mainMenu
+        panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = false
+        panel.hasShadow = true
         panel.contentView = orbHostingController?.view
         panel.contentView?.wantsLayer = true
         panel.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
         
         orbPanel = panel
         positionOrbPanel()
+        
+        print("🔧 Orb panel setup complete")
     }
     
     // MARK: - Overlay Panel Setup
@@ -95,8 +97,18 @@ class WindowManager: ObservableObject {
     func showOrb() {
         print("🔮 Showing Orb...")
         positionOrbPanel()
-        orbPanel?.orderFrontRegardless()
-        print("✅ Orb displayed")
+        
+        guard let panel = orbPanel else {
+            print("❌ Orb panel is nil")
+            return
+        }
+        
+        panel.level = .floating
+        panel.orderFrontRegardless()
+        panel.makeKey()
+        
+        print("✅ Orb displayed at frame: \(panel.frame)")
+        print("📐 Screen frame: \(NSScreen.main?.frame ?? .zero)")
     }
     
     func hideOrb() {

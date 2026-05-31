@@ -75,6 +75,10 @@ struct OrbView: View {
                             lineWidth: 2
                         )
                 )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
         }
         .onAppear {
             startBreathingAnimation()
