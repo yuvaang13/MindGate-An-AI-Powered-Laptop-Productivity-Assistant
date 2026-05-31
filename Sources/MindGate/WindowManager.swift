@@ -98,15 +98,24 @@ class WindowManager: ObservableObject {
 
         orbPanel?.setFrameOrigin(NSPoint(x: x, y: y))
 
-        if isOrbExpanded {
-            orbPanel?.setContentSize(NSSize(width: Configuration.Dimensions.orbExpandedWidth, height: Configuration.Dimensions.orbExpandedHeight))
-        } else {
-            orbPanel?.setContentSize(NSSize(width: Configuration.Dimensions.orbSize, height: Configuration.Dimensions.orbSize))
-        }
+        let contentSize = NSSize(width: orbSize, height: orbHeight)
+
+        orbPanel?.setContentSize(contentSize)
+        applyOrbPanelShape(size: contentSize)
     }
 
     private func refreshOrbView() {
         orbHostingController?.rootView = OrbView(windowManager: self, decisionEngine: decisionEngine)
+    }
+
+    private func applyOrbPanelShape(size: NSSize) {
+        guard let contentView = orbPanel?.contentView else { return }
+
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = NSColor.clear.cgColor
+        contentView.layer?.cornerRadius = min(size.width, size.height) / 2
+        contentView.layer?.cornerCurve = .continuous
+        contentView.layer?.masksToBounds = true
     }
 
     // MARK: - Orb Control
