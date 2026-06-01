@@ -6,6 +6,9 @@ class WorkspaceMonitor {
     private weak var decisionEngine: DecisionEngine?
     private var accessibilityManager: AccessibilityManager!
     private var observer: NSObjectProtocol?
+    private var lastCheckedApp: NSRunningApplication?
+    private var lastCheckedTime: Date?
+    private let debounceInterval: TimeInterval = 0.5
 
     init(windowManager: WindowManager, decisionEngine: DecisionEngine) {
         self.windowManager = windowManager
@@ -65,6 +68,16 @@ class WorkspaceMonitor {
 
         if isBrowser {
             print("🌐 Browser detected: \(appName)")
+            // Debounce browser content checks
+            let now = Date()
+            if let lastTime = lastCheckedTime,
+               now.timeIntervalSince(lastTime) < debounceInterval,
+               lastCheckedApp?.bundleIdentifier == app.bundleIdentifier {
+                print("⏱️ Debouncing browser check (too soon)")
+                return
+            }
+            lastCheckedApp = app
+            lastCheckedTime = now
             checkBrowserContent(app: app)
         }
     }
