@@ -43,18 +43,18 @@ struct MindGateOrb: View {
 
     var body: some View {
         ZStack {
-            // Luminescent glow background
+            // Bright white glow background
             RadialGradient(
                 colors: [
-                    palette.violet.opacity(0.4),
-                    palette.indigo.opacity(0.2),
+                    Color.white.opacity(0.8),
+                    Color.white.opacity(0.4),
                     Color.clear
                 ],
                 center: .center,
                 startRadius: 0,
-                endRadius: size * 0.6
+                endRadius: size * 0.8
             )
-            .blur(radius: 15)
+            .blur(radius: 20)
             .frame(width: size, height: size)
 
             // Glassmorphic base
@@ -64,48 +64,48 @@ struct MindGateOrb: View {
                     Circle()
                         .stroke(
                             LinearGradient(
-                                colors: [.white.opacity(0.6), .clear, palette.violet.opacity(0.3)],
+                                colors: [.white.opacity(0.9), .white.opacity(0.5), .white.opacity(0.3)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
-                            lineWidth: 1.5
+                            lineWidth: 2
                         )
                 )
-                .shadow(color: palette.violet.opacity(0.5), radius: 20, x: 0, y: 0)
+                .shadow(color: .white.opacity(0.6), radius: 30, x: 0, y: 0)
 
-            // Siri-inspired animated wave lines
+            // Animated wave lines with more visible movement
             ZStack {
-                ForEach(0..<5, id: \.self) { index in
+                ForEach(0..<7, id: \.self) { index in
                     WaveLine(
-                        phase: wavePhase + CGFloat(index) * 0.5,
-                        amplitude: 8 + CGFloat(index) * 2,
-                        frequency: 0.02 + CGFloat(index) * 0.005,
-                        yOffset: CGFloat(index - 2) * 4
+                        phase: wavePhase + CGFloat(index) * 0.8,
+                        amplitude: 12 + CGFloat(index) * 3,
+                        frequency: 0.03 + CGFloat(index) * 0.008,
+                        yOffset: CGFloat(index - 3) * 6
                     )
                     .stroke(
                         LinearGradient(
-                            colors: [palette.violet, palette.teal, Color.pink],
+                            colors: [.white, .white.opacity(0.7), .white.opacity(0.4)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
-                        lineWidth: 2
+                        lineWidth: 3
                     )
-                    .opacity(0.3 + CGFloat(index) * 0.1)
+                    .opacity(0.4 + CGFloat(index) * 0.08)
                 }
             }
-            .frame(width: size * 0.7, height: size * 0.5)
-            .blur(radius: 1)
+            .frame(width: size * 0.75, height: size * 0.55)
+            .blur(radius: 0.5)
         }
         .frame(width: size, height: size)
-        .scaleEffect(1 + breath * 0.03)
-        .opacity(0.95 + breath * 0.05)
+        .scaleEffect(1 + breath * 0.05)
+        .opacity(0.98 + breath * 0.02)
         .drawingGroup(opaque: false, colorMode: .linear)
         .accessibilityLabel("MindGate AI orb")
         .onAppear {
-            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
                 breath = 1
             }
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+            withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
                 wavePhase = 2 * .pi
             }
         }
@@ -137,15 +137,15 @@ struct WaveLine: Shape {
 }
 
 struct MindGateOrbPalette {
-    // Icon-matched color palette based on the MindGate icon
-    let indigo = Color(hex: "#7C3AED")
-    let violet = Color(hex: "#8B5CF6")
-    let deepViolet = Color(hex: "#4C1D95")
-    let teal = Color(hex: "#A78BFA")
-    let emerald = Color(hex: "#C4B5FD")
-    let cyan = Color(hex: "#DDD6FE")
-    let pink = Color(hex: "#F5D0FE")
-    let ink = Color(hex: "#1E1B4B")
+    // White color palette for clean, premium look
+    let indigo = Color.white
+    let violet = Color.white
+    let deepViolet = Color.gray
+    let teal = Color.white
+    let emerald = Color.white
+    let cyan = Color.white
+    let pink = Color.white
+    let ink = Color.black
     let glassWhite = Color.white
 
     static let mindGate = MindGateOrbPalette()
