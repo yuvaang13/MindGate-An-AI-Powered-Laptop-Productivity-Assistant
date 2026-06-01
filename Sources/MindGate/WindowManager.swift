@@ -96,7 +96,7 @@ class WindowManager: ObservableObject {
         let xOffset: CGFloat = isOrbExpanded ? 18 : orbSize * 0.5
         let yOffset: CGFloat = isOrbExpanded ? 12 : orbSize * 0.5
         let x = screenFrame.minX - xOffset
-        let y = screenFrame.maxY - orbHeight + yOffset
+        let y = screenFrame.maxY - orbHeight - yOffset - 100
 
         let contentSize = NSSize(width: orbSize, height: orbHeight)
         let frame = NSRect(origin: NSPoint(x: x, y: y), size: contentSize)
