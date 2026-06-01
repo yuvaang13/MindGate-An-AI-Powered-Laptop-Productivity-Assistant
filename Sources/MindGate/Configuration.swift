@@ -87,7 +87,7 @@ struct Configuration {
     
     // MARK: - Ollama Configuration
     static let ollamaURL = "http://localhost:11434/api/generate"
-    static let ollamaModel = "llama3.1:latest"
+    static let ollamaModel = "lfm2.5-thinking:1.2b"
     
     // MARK: - Access Durations (in seconds)
     static let accessDurations: [TimeInterval] = [
