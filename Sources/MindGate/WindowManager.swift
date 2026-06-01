@@ -153,7 +153,7 @@ class WindowManager: ObservableObject {
     // MARK: - Orb Control
     func showOrb() {
         print("🔮 Showing Orb...")
-        isOrbExpanded = true
+        isOrbExpanded = false
         positionOrbPanel()
         refreshOrbView()
 
