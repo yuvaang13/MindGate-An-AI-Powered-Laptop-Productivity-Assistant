@@ -119,7 +119,7 @@ class WindowManager: ObservableObject {
         contentView.wantsLayer = true
         contentView.frame = NSRect(origin: .zero, size: size)
         contentView.layer?.backgroundColor = NSColor.clear.cgColor
-        contentView.layer?.cornerRadius = 12
+        contentView.layer?.cornerRadius = 16
         contentView.layer?.cornerCurve = .continuous
         contentView.layer?.masksToBounds = true
     }

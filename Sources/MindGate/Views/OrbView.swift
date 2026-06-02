@@ -33,41 +33,94 @@ struct FlowingLinesView: View {
     
     @State private var phase: CGFloat = 0
     @State private var breath: CGFloat = 0
+    @State private var glowIntensity: CGFloat = 0.5
     
     var body: some View {
         ZStack {
-            // Black background
-            Color.black
+            // Premium black gradient background
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.98),
+                    Color.black.opacity(0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
             
-            // White flowing lines animation
+            // Subtle ambient glow
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(glowIntensity * 0.08),
+                    Color.clear
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: size * 0.6
+            )
+            .blur(radius: 20)
+            
+            // Layered white flowing lines animation
             ZStack {
-                ForEach(0..<5, id: \.self) { index in
+                // Background layer - subtle
+                ForEach(0..<3, id: \.self) { index in
                     FlowingLine(
-                        phase: phase + CGFloat(index) * 0.8,
-                        amplitude: 15 + CGFloat(index) * 3,
-                        frequency: 0.03 + CGFloat(index) * 0.005,
-                        yOffset: CGFloat(index - 2) * 8
+                        phase: phase * 0.7 + CGFloat(index) * 1.2,
+                        amplitude: 12 + CGFloat(index) * 4,
+                        frequency: 0.025 + CGFloat(index) * 0.008,
+                        yOffset: CGFloat(index - 1) * 12
                     )
                     .stroke(
-                        Color.white.opacity(0.6 - CGFloat(index) * 0.08),
-                        lineWidth: 1.5
+                        Color.white.opacity(0.15 - CGFloat(index) * 0.03),
+                        lineWidth: 2
+                    )
+                    .blur(radius: 1.5)
+                }
+                
+                // Middle layer - main
+                ForEach(0..<5, id: \.self) { index in
+                    FlowingLine(
+                        phase: phase + CGFloat(index) * 0.9,
+                        amplitude: 18 + CGFloat(index) * 3.5,
+                        frequency: 0.035 + CGFloat(index) * 0.006,
+                        yOffset: CGFloat(index - 2) * 10
+                    )
+                    .stroke(
+                        Color.white.opacity(0.5 - CGFloat(index) * 0.07),
+                        lineWidth: 1.8
+                    )
+                    .blur(radius: 0.8)
+                }
+                
+                // Foreground layer - accent
+                ForEach(0..<2, id: \.self) { index in
+                    FlowingLine(
+                        phase: phase * 1.3 + CGFloat(index) * 1.5,
+                        amplitude: 22 + CGFloat(index) * 2,
+                        frequency: 0.04 + CGFloat(index) * 0.004,
+                        yOffset: (CGFloat(index) - 0.5) * 15
+                    )
+                    .stroke(
+                        Color.white.opacity(0.7 - CGFloat(index) * 0.1),
+                        lineWidth: 1.2
                     )
                 }
             }
-            .frame(width: size * 0.8, height: size * 0.6)
-            .blur(radius: 0.5)
+            .frame(width: size * 0.85, height: size * 0.65)
         }
         .frame(width: size, height: size)
-        .scaleEffect(1 + breath * 0.05)
-        .opacity(0.95 + breath * 0.05)
+        .scaleEffect(1 + breath * 0.04)
+        .opacity(0.96 + breath * 0.04)
         .drawingGroup(opaque: false, colorMode: .linear)
         .accessibilityLabel("MindGate flowing lines")
         .onAppear {
-            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
                 breath = 1
             }
-            withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
+            withAnimation(.linear(duration: 4.0).repeatForever(autoreverses: false)) {
                 phase = 2 * .pi
+            }
+            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                glowIntensity = 0.8
             }
         }
     }

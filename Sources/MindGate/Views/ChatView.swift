@@ -13,53 +13,73 @@ struct ChatView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
+            // Premium glassmorphic background
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.black.opacity(0.85),
+                                    Color.black.opacity(0.75)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+
             FlowingLinesView(size: Configuration.Dimensions.orbExpandedWidth)
                 .allowsHitTesting(false)
+                .opacity(0.15)
 
-            VStack(spacing: 14) {
-                Spacer(minLength: 34)
+            VStack(spacing: 18) {
+                Spacer(minLength: 42)
 
                 Text(headlineText)
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.92))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.95))
                     .multilineTextAlignment(.center)
-                    .shadow(color: .black.opacity(0.28), radius: 8, x: 0, y: 2)
+                    .shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 4)
+                    .tracking(-0.5)
 
-                Text("Explain the work reason. I’ll decide fast.")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.58))
+                Text("Explain the work reason. I'll decide fast.")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.62))
                     .multilineTextAlignment(.center)
                     .opacity(showDurationSelection || showDeniedMessage || isLoading ? 0 : 1)
+                    .tracking(0.2)
 
                 contentView
                     .frame(maxWidth: .infinity)
 
-                Spacer(minLength: 30)
+                Spacer(minLength: 36)
             }
-            .padding(.horizontal, 34)
-            .padding(.vertical, 18)
+            .padding(.horizontal, 40)
+            .padding(.vertical, 24)
 
             closeButton
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.74),
-                            Color.white.opacity(0.48),
-                            Color.white.opacity(0.32)
+                            Color.white.opacity(0.18),
+                            Color.white.opacity(0.08),
+                            Color.white.opacity(0.04)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 1.4
+                    lineWidth: 1
                 )
         )
-        .shadow(color: Color.white.opacity(0.2), radius: 28, x: 0, y: 12)
-        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.6), radius: 40, x: 0, y: 20)
+        .shadow(color: .white.opacity(0.08), radius: 20, x: 0, y: 8)
     }
 
     @ViewBuilder
@@ -100,15 +120,22 @@ struct ChatView: View {
             }
         }) {
             Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.white.opacity(0.82))
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(Color.white.opacity(0.12)))
-                .overlay(Circle().stroke(Color.white.opacity(0.28), lineWidth: 0.8))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.88))
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.08))
+                        )
+                )
+                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
-        .padding(.top, 42)
-        .padding(.trailing, 48)
+        .padding(.top, 48)
+        .padding(.trailing, 52)
     }
 
     private var inputView: some View {
@@ -119,112 +146,140 @@ struct ChatView: View {
     }
 
     private var loadingView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: Configuration.Colors.accent))
-                .scaleEffect(1.1)
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .scaleEffect(1.2)
 
             Text("AI is thinking...")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.68))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.72))
+                .tracking(0.3)
         }
-        .padding(.top, 10)
+        .padding(.top, 12)
     }
 
     private var responseView: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 18) {
             Text(aiResponse)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.76))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.82))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 6)
+                .padding(.horizontal, 8)
+                .lineSpacing(4)
+                .tracking(0.2)
 
             Button(action: {
                 windowManager?.collapseOrb()
                 resetState()
             }) {
                 Label("Close", systemImage: "checkmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
             }
             .buttonStyle(MinimalActionButtonStyle())
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
     }
 
     private var durationSelectionView: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 18) {
             Text("Choose duration:")
-                .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.66))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.68))
+                .tracking(0.3)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 ForEach(0..<Configuration.accessDurationLabels.count, id: \.self) { index in
                     Button(action: {
                         selectDuration(index: index)
                     }) {
                         Text(Configuration.accessDurationLabels[index])
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(MinimalActionButtonStyle())
                 }
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
     }
 
     private var deniedMessageView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Image(systemName: "xmark.shield.fill")
-                .font(.system(size: 34))
-                .foregroundColor(.red)
+                .font(.system(size: 36))
+                .foregroundColor(.white.opacity(0.9))
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
 
             Text("Stay focused and return to work.")
-                .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.66))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.68))
                 .multilineTextAlignment(.center)
+                .tracking(0.2)
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
     }
 
     private var promptBox: some View {
-        HStack(alignment: .bottom, spacing: 10) {
+        HStack(alignment: .bottom, spacing: 12) {
             ReliablePromptTextView(
                 text: $userInput,
                 placeholder: "I need this because...",
                 onSubmit: submitRequest
             )
-            .frame(height: 76)
+            .frame(height: 80)
 
             Button(action: submitRequest) {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 38, height: 38)
                     .background(
                         Circle()
-                            .fill(canSubmit ? Configuration.Colors.accent : Color.white.opacity(0.13))
+                            .fill(
+                                canSubmit 
+                                ? LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.9),
+                                        Color.white.opacity(0.7)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                : LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.12),
+                                        Color.white.opacity(0.08)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     )
-                    .overlay(Circle().stroke(Color.white.opacity(canSubmit ? 0.42 : 0.18), lineWidth: 0.8))
+                    .overlay(Circle().stroke(Color.white.opacity(canSubmit ? 0.3 : 0.15), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
             .disabled(!canSubmit)
             .help("Submit")
         }
-        .padding(10)
+        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .overlay(Configuration.Colors.background.opacity(0.28))
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.3))
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.4),
-                            Configuration.Colors.accent.opacity(0.32),
-                            Configuration.Colors.primary.opacity(0.22)
+                            Color.white.opacity(0.15),
+                            Color.white.opacity(0.08),
+                            Color.white.opacity(0.04)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -232,7 +287,7 @@ struct ChatView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.22), radius: 16, x: 0, y: 9)
+        .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 12)
     }
 
     private var canSubmit: Bool {
@@ -294,28 +349,32 @@ struct ChatView: View {
 private struct MinimalActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Self.Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(.white.opacity(0.9))
-            .padding(.horizontal, 13)
-            .frame(height: 36)
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundColor(.white.opacity(0.92))
+            .padding(.horizontal, 16)
+            .frame(height: 40)
             .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                AppThemeColors.accent.opacity(configuration.isPressed ? 0.42 : 0.62),
-                                AppThemeColors.primary.opacity(configuration.isPressed ? 0.34 : 0.54)
+                                Color.white.opacity(configuration.isPressed ? 0.25 : 0.35),
+                                Color.white.opacity(configuration.isPressed ? 0.15 : 0.25)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(.ultraThinMaterial)
+                    )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(Color.white.opacity(0.28), lineWidth: 0.8)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
             )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
     }
 }
 
