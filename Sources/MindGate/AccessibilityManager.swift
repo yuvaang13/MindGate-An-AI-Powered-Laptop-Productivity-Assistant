@@ -5,6 +5,7 @@ import OSLog
 
 class AccessibilityManager {
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "AccessibilityManager")
+
     func hasAccessibilityPermissions() -> Bool {
         return AXIsProcessTrusted()
     }
@@ -16,6 +17,21 @@ class AccessibilityManager {
 
     func getActiveApplication() -> NSRunningApplication? {
         return NSWorkspace.shared.frontmostApplication
+    }
+
+    func getActiveBrowserURL(for application: NSRunningApplication) -> String? {
+        guard let script = browserURLScript(for: application) else {
+            return nil
+        }
+
+        var error: NSDictionary?
+        let result = NSAppleScript(source: script)?.executeAndReturnError(&error)
+
+        if let error {
+            logger.debug("Could not read browser URL for \(application.localizedName ?? "Unknown"): \(error)")
+        }
+
+        return result?.stringValue
     }
 
     func getWindowTitle(for application: NSRunningApplication) -> String? {
@@ -77,5 +93,33 @@ class AccessibilityManager {
         let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
 
         return result == .success
+    }
+
+    private func browserURLScript(for application: NSRunningApplication) -> String? {
+        guard let bundleID = application.bundleIdentifier?.lowercased() else {
+            return nil
+        }
+
+        if bundleID.contains("safari") {
+            return """
+            tell application id "\(bundleID)"
+                if (count of windows) is 0 then return ""
+                return URL of current tab of front window
+            end tell
+            """
+        }
+
+        if bundleID.contains("chrome") ||
+            bundleID.contains("brave") ||
+            bundleID.contains("edge") {
+            return """
+            tell application id "\(bundleID)"
+                if (count of windows) is 0 then return ""
+                return URL of active tab of front window
+            end tell
+            """
+        }
+
+        return nil
     }
 }

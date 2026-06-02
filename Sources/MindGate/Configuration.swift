@@ -14,6 +14,46 @@ struct AppSettings: Codable {
     var productiveApps: [String]
     var justificationCountdownDuration: Int
 
+    init(
+        distractingApps: [String],
+        restrictedKeywords: [String],
+        monitoredBrowsers: [String],
+        ollamaURL: String,
+        ollamaModel: String,
+        accessDurations: [TimeInterval],
+        accessDurationLabels: [String],
+        productiveTasks: [String],
+        productiveApps: [String],
+        justificationCountdownDuration: Int
+    ) {
+        self.distractingApps = distractingApps
+        self.restrictedKeywords = restrictedKeywords
+        self.monitoredBrowsers = monitoredBrowsers
+        self.ollamaURL = ollamaURL
+        self.ollamaModel = ollamaModel
+        self.accessDurations = accessDurations
+        self.accessDurationLabels = accessDurationLabels
+        self.productiveTasks = productiveTasks
+        self.productiveApps = productiveApps
+        self.justificationCountdownDuration = justificationCountdownDuration
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = Self.defaultSettings
+
+        distractingApps = try container.decodeIfPresent([String].self, forKey: .distractingApps) ?? defaults.distractingApps
+        restrictedKeywords = try container.decodeIfPresent([String].self, forKey: .restrictedKeywords) ?? defaults.restrictedKeywords
+        monitoredBrowsers = try container.decodeIfPresent([String].self, forKey: .monitoredBrowsers) ?? defaults.monitoredBrowsers
+        ollamaURL = try container.decodeIfPresent(String.self, forKey: .ollamaURL) ?? defaults.ollamaURL
+        ollamaModel = try container.decodeIfPresent(String.self, forKey: .ollamaModel) ?? defaults.ollamaModel
+        accessDurations = try container.decodeIfPresent([TimeInterval].self, forKey: .accessDurations) ?? defaults.accessDurations
+        accessDurationLabels = try container.decodeIfPresent([String].self, forKey: .accessDurationLabels) ?? defaults.accessDurationLabels
+        productiveTasks = try container.decodeIfPresent([String].self, forKey: .productiveTasks) ?? defaults.productiveTasks
+        productiveApps = try container.decodeIfPresent([String].self, forKey: .productiveApps) ?? defaults.productiveApps
+        justificationCountdownDuration = try container.decodeIfPresent(Int.self, forKey: .justificationCountdownDuration) ?? defaults.justificationCountdownDuration
+    }
+
     static let defaultSettings = AppSettings(
         distractingApps: [
             "Discord", "Slack", "Twitter", "Telegram", "Reddit", "TikTok",

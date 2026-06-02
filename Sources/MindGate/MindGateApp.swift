@@ -29,21 +29,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         workspaceMonitor = WorkspaceMonitor(
             windowManager: windowManager,
             decisionEngine: decisionEngine,
-            configuration: configuration
+            configurationManager: configurationManager
         )
 
         // Check accessibility permissions
         let hasPermissions = accessibilityManager.hasAccessibilityPermissions()
         logger.info("🔐 Accessibility permissions: \(hasPermissions ? "✅ Granted" : "❌ Denied")")
 
-        // Start monitoring regardless of permissions for testing
-        // Browser monitoring requires permissions, but app monitoring works without them
-        workspaceMonitor.startMonitoring()
-
         if !hasPermissions {
-            logger.warning("⚠️ Browser monitoring may not work without accessibility permissions")
+            accessibilityManager.requestAccessibilityPermissions()
+            logger.warning("⚠️ Browser monitoring may not work until accessibility permissions are granted")
             logger.info("💡 Grant permissions in System Settings > Privacy & Security > Accessibility")
         }
+
+        workspaceMonitor.startMonitoring()
 
         setupStatusBarItem()
     }
@@ -55,6 +54,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Request Accessibility Permission", action: #selector(requestAccessibilityPermission), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit MindGate", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusBarItem.menu = menu
@@ -74,6 +74,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             settingsWindow?.title = "MindGate Settings"
         }
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func requestAccessibilityPermission() {
+        accessibilityManager.requestAccessibilityPermissions()
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
