@@ -12,7 +12,7 @@ struct ChatView: View {
     @State private var showDurationSelection: Bool = false
     @State private var showDeniedMessage: Bool = false
     @State private var showTakeoverView: Bool = false // New state for takeover view
-    @State private var countdownSeconds: Int = 15 // Initial countdown time
+    @State private var countdownSeconds: Int = 20 // Initial countdown time
     @State private var timer: Timer? // Timer instance
 
     var body: some View {
@@ -367,7 +367,7 @@ struct ChatView: View {
         showDurationSelection = false
         showDeniedMessage = false
         showTakeoverView = false // Reset takeover view state
-        countdownSeconds = 15 // Reset countdown
+        countdownSeconds = 20 // Reset countdown
         stopCountdown() // Stop any active timer
     }
 
@@ -375,7 +375,7 @@ struct ChatView: View {
         // Invalidate any existing timer first
         stopCountdown()
 
-        countdownSeconds = 15 // Set initial countdown time
+        countdownSeconds = 20 // Set initial countdown time
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if self.countdownSeconds > 0 {
                 self.countdownSeconds -= 1
@@ -398,14 +398,12 @@ struct ChatView: View {
                 isLoading = false
                 aiResponse = "Time's up! Access denied."
                 showTakeoverView = true // Show takeover view on denial
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    windowManager?.showOverlay()
-                    decisionEngine.closeCurrentAppOrTab()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                        windowManager?.hideOverlay()
-                        windowManager?.hideOrb()
-                        resetState()
-                    }
+                windowManager?.showOverlay()
+                decisionEngine.closeCurrentAppOrTab()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    windowManager?.hideOverlay()
+                    windowManager?.hideOrb()
+                    resetState()
                 }
             }
         }
