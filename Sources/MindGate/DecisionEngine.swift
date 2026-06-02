@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import OSLog
 
 struct DecisionResult {
     let isApproved: Bool
@@ -7,16 +8,17 @@ struct DecisionResult {
 }
 
 class DecisionEngine {
-    static let shared = DecisionEngine()
-
     private let ollamaService: OllamaService
+    private let configuration: Configuration
     private var currentApp: NSRunningApplication?
     private var accessTimer: Timer?
     private var grantedAppIdentifier: String?
     private var accessExpiresAt: Date?
+    private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "DecisionEngine")
 
-    init(ollamaService: OllamaService? = nil) {
-        self.ollamaService = ollamaService ?? OllamaService()
+    init(ollamaService: OllamaService, configuration: Configuration) {
+        self.ollamaService = ollamaService
+        self.configuration = configuration
     }
 
     func setCurrentApp(_ app: NSRunningApplication) {
@@ -39,6 +41,7 @@ class DecisionEngine {
                 return DecisionResult(isApproved: false, message: "Access denied. Stay focused on your work.")
             }
         } catch {
+            logger.error("Error evaluating request with Ollama: \(error.localizedDescription)")
             // If Ollama fails, default to denying access for safety
             return DecisionResult(isApproved: false, message: "AI service unavailable. Access denied.")
         }
@@ -54,7 +57,7 @@ class DecisionEngine {
             self?.revokeAccess()
         }
 
-        print("Access granted for \(duration) seconds")
+        logger.info("Access granted for \(duration) seconds.")
     }
 
     private func revokeAccess() {
@@ -114,9 +117,9 @@ class DecisionEngine {
             var error: NSDictionary?
             NSAppleScript(source: script)?.executeAndReturnError(&error)
             if let error = error {
-                print("❌ Failed to close browser tab: \(error)")
+                logger.error("❌ Failed to close browser tab: \(error)")
             } else {
-                print("✅ Closed browser tab")
+                logger.info("✅ Closed browser tab")
             }
         }
     }

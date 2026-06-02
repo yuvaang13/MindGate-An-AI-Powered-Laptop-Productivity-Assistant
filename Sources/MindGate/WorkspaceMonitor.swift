@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import OSLog
 
 class WorkspaceMonitor {
     private weak var windowManager: WindowManager?
@@ -9,15 +10,18 @@ class WorkspaceMonitor {
     private var lastCheckedApp: NSRunningApplication?
     private var lastCheckedTime: Date?
     private let debounceInterval: TimeInterval = 0.05
+    private let configuration: Configuration
+    private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "WorkspaceMonitor")
 
-    init(windowManager: WindowManager, decisionEngine: DecisionEngine) {
+    init(windowManager: WindowManager, decisionEngine: DecisionEngine, configuration: Configuration) {
         self.windowManager = windowManager
         self.decisionEngine = decisionEngine
         self.accessibilityManager = AccessibilityManager()
+        self.configuration = configuration
     }
 
     func startMonitoring() {
-        print("🔍 MindGate: Starting workspace monitoring...")
+        logger.info("🔍 Starting workspace monitoring...")
         observer = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -25,7 +29,7 @@ class WorkspaceMonitor {
         ) { [weak self] notification in
             self?.handleApplicationActivation(notification)
         }
-        print("✅ MindGate: Workspace monitoring started")
+        logger.info("✅ Workspace monitoring started")
     }
 
     func stopMonitoring() {
@@ -41,16 +45,16 @@ class WorkspaceMonitor {
 
         let appName = app.localizedName ?? ""
         let bundleID = app.bundleIdentifier ?? ""
-        print("📱 App activated: \(appName) (Bundle: \(bundleID))")
+        logger.info("📱 App activated: \(appName) (Bundle: \(bundleID))")
 
         if decisionEngine?.hasActiveAccess(for: app) == true {
-            print("✅ Active access window still valid for \(appName)")
+            logger.info("✅ Active access window still valid for \(appName)")
             return
         }
 
         // Check if app is distracting
-        if Configuration.distractingApps.contains(appName) {
-            print("⚠️ Distracting app detected: \(appName)")
+        if configuration.settings.distractingApps.contains(appName) {
+            logger.warning("⚠️ Distracting app detected: \(appName)")
             Task { @MainActor in
                 self.windowManager?.showOrb()
                 self.decisionEngine?.setCurrentApp(app)
@@ -59,7 +63,7 @@ class WorkspaceMonitor {
         }
 
         // Check if it's a browser with restricted content
-        let isBrowser = Configuration.monitoredBrowsers.contains(appName) ||
+        let isBrowser = configuration.settings.monitoredBrowsers.contains(appName) ||
                        bundleID.contains("chrome") ||
                        bundleID.contains("safari") ||
                        bundleID.contains("firefox") ||
@@ -67,13 +71,13 @@ class WorkspaceMonitor {
                        bundleID.contains("edge")
 
         if isBrowser {
-            print("🌐 Browser detected: \(appName)")
+            logger.info("🌐 Browser detected: \(appName)")
             // Debounce browser content checks
             let now = Date()
             if let lastTime = lastCheckedTime,
                now.timeIntervalSince(lastTime) < debounceInterval,
                lastCheckedApp?.bundleIdentifier == app.bundleIdentifier {
-                print("⏱️ Debouncing browser check (too soon)")
+                logger.debug("⏱️ Debouncing browser check (too soon)")
                 return
             }
             lastCheckedApp = app
@@ -84,16 +88,16 @@ class WorkspaceMonitor {
 
     private func checkBrowserContent(app: NSRunningApplication) {
         let canAccess = accessibilityManager.testAccessibilityForApp(app)
-        print("🔐 Can access browser windows: \(canAccess)")
+        logger.info("🔐 Can access browser windows: \(canAccess)")
 
         if !canAccess {
-            print("❌ Accessibility permissions not working for browser")
+            logger.warning("❌ Accessibility permissions not working for browser")
             return
         }
 
         let windowTitles = accessibilityManager.getAllWindowTitles(for: app)
 
-        print("🔍 Browser window titles: \(windowTitles)")
+        logger.info("🔍 Browser window titles: \(windowTitles)")
 
         for title in windowTitles {
             let lowercasedTitle = title.lowercased()
@@ -102,7 +106,7 @@ class WorkspaceMonitor {
             if lowercasedTitle.contains("youtube") || 
                lowercasedTitle.contains("youtu.be") ||
                lowercasedTitle.contains("- youtube") {
-                print("⚠️ YouTube detected in title: \(title)")
+                logger.warning("⚠️ YouTube detected in title: \(title)")
                 Task { @MainActor in
                     self.windowManager?.showOrb()
                     self.decisionEngine?.setCurrentApp(app)
@@ -111,9 +115,9 @@ class WorkspaceMonitor {
             }
             
             // Check other restricted keywords
-            for keyword in Configuration.restrictedKeywords {
+            for keyword in configuration.settings.restrictedKeywords {
                 if lowercasedTitle.contains(keyword) {
-                    print("⚠️ Restricted keyword detected: \(keyword) in title: \(title)")
+                    logger.warning("⚠️ Restricted keyword detected: \(keyword) in title: \(title)")
                     Task { @MainActor in
                         self.windowManager?.showOrb()
                         self.decisionEngine?.setCurrentApp(app)
@@ -124,7 +128,7 @@ class WorkspaceMonitor {
         }
 
         if windowTitles.isEmpty {
-            print("⚠️ Could not get any window titles for browser")
+            logger.warning("⚠️ Could not get any window titles for browser")
         }
     }
 

@@ -4,6 +4,7 @@ import AppKit
 struct ChatView: View {
     weak var windowManager: WindowManager?
     let decisionEngine: DecisionEngine
+    let configuration: Configuration
 
     @State private var userInput: String = ""
     @State private var isLoading: Bool = false
@@ -21,8 +22,8 @@ struct ChatView: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.black.opacity(0.85),
-                                    Color.black.opacity(0.75)
+                                    Color(hex: configuration.theme.colors.background).opacity(0.85),
+                                    Color(hex: configuration.theme.colors.background).opacity(0.75)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -30,7 +31,7 @@ struct ChatView: View {
                         )
                 )
 
-            FlowingLinesView(size: Configuration.Dimensions.orbExpandedWidth)
+            FlowingLinesView(size: configuration.theme.dimensions.orbExpandedWidth)
                 .allowsHitTesting(false)
                 .opacity(0.15)
 
@@ -39,14 +40,14 @@ struct ChatView: View {
 
                 Text(headlineText)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.95))
+                    .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.95))
                     .multilineTextAlignment(.center)
-                    .shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 4)
+                    .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.4), radius: 12, x: 0, y: 4)
                     .tracking(-0.5)
 
                 Text("Explain the work reason. I'll decide fast.")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.62))
+                    .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.62))
                     .multilineTextAlignment(.center)
                     .opacity(showDurationSelection || showDeniedMessage || isLoading ? 0 : 1)
                     .tracking(0.2)
@@ -68,9 +69,9 @@ struct ChatView: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.18),
-                            Color.white.opacity(0.08),
-                            Color.white.opacity(0.04)
+                            Color(hex: configuration.theme.colors.primary).opacity(0.18),
+                            Color(hex: configuration.theme.colors.primary).opacity(0.08),
+                            Color(hex: configuration.theme.colors.primary).opacity(0.04)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -115,23 +116,23 @@ struct ChatView: View {
 
     private var closeButton: some View {
         Button(action: {
-            withAnimation(.easeInOut(duration: Configuration.Animation.orbTransitionDuration)) {
+            withAnimation(.easeInOut(duration: configuration.theme.animation.orbTransitionDuration)) {
                 windowManager?.collapseOrb()
             }
         }) {
             Image(systemName: "xmark")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white.opacity(0.88))
+                .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.88))
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
                         .fill(.ultraThinMaterial)
                         .background(
                             Circle()
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Color(hex: configuration.theme.colors.primary).opacity(0.08))
                         )
                 )
-                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 0.5))
+                .overlay(Circle().stroke(Color(hex: configuration.theme.colors.primary).opacity(0.18), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .padding(.top, 48)
@@ -148,12 +149,12 @@ struct ChatView: View {
     private var loadingView: some View {
         VStack(spacing: 16) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: configuration.theme.colors.primary)))
                 .scaleEffect(1.2)
 
             Text("AI is thinking...")
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(.white.opacity(0.72))
+                .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.72))
                 .tracking(0.3)
         }
         .padding(.top, 12)
@@ -163,7 +164,7 @@ struct ChatView: View {
         VStack(spacing: 18) {
             Text(aiResponse)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.white.opacity(0.82))
+                .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.82))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 8)
@@ -177,7 +178,7 @@ struct ChatView: View {
                 Label("Close", systemImage: "checkmark")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
             }
-            .buttonStyle(MinimalActionButtonStyle())
+            .buttonStyle(MinimalActionButtonStyle(configuration: configuration))
         }
         .padding(.horizontal, 8)
     }
@@ -186,19 +187,19 @@ struct ChatView: View {
         VStack(spacing: 18) {
             Text("Choose duration:")
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(.white.opacity(0.68))
+                .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.68))
                 .tracking(0.3)
 
             HStack(spacing: 10) {
-                ForEach(0..<Configuration.accessDurationLabels.count, id: \.self) { index in
+                ForEach(0..<configuration.settings.accessDurationLabels.count, id: \.self) { index in
                     Button(action: {
                         selectDuration(index: index)
                     }) {
-                        Text(Configuration.accessDurationLabels[index])
+                        Text(configuration.settings.accessDurationLabels[index])
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(MinimalActionButtonStyle())
+                    .buttonStyle(MinimalActionButtonStyle(configuration: configuration))
                 }
             }
         }
@@ -209,12 +210,12 @@ struct ChatView: View {
         VStack(spacing: 16) {
             Image(systemName: "xmark.shield.fill")
                 .font(.system(size: 36))
-                .foregroundColor(.white.opacity(0.9))
-                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+                .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.9))
+                .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.3), radius: 8, x: 0, y: 4)
 
             Text("Stay focused and return to work.")
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(.white.opacity(0.68))
+                .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.68))
                 .multilineTextAlignment(.center)
                 .tracking(0.2)
         }
@@ -226,14 +227,15 @@ struct ChatView: View {
             ReliablePromptTextView(
                 text: $userInput,
                 placeholder: "I need this because...",
-                onSubmit: submitRequest
+                onSubmit: submitRequest,
+                configuration: configuration
             )
             .frame(height: 80)
 
             Button(action: submitRequest) {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Color(hex: configuration.theme.colors.primary))
                     .frame(width: 38, height: 38)
                     .background(
                         Circle()
@@ -241,23 +243,23 @@ struct ChatView: View {
                                 canSubmit 
                                 ? LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.9),
-                                        Color.white.opacity(0.7)
+                                        Color(hex: configuration.theme.colors.primary).opacity(0.9),
+                                        Color(hex: configuration.theme.colors.primary).opacity(0.7)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                                 : LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.12),
-                                        Color.white.opacity(0.08)
+                                        Color(hex: configuration.theme.colors.primary).opacity(0.12),
+                                        Color(hex: configuration.theme.colors.primary).opacity(0.08)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
                     )
-                    .overlay(Circle().stroke(Color.white.opacity(canSubmit ? 0.3 : 0.15), lineWidth: 0.5))
+                    .overlay(Circle().stroke(Color(hex: configuration.theme.colors.primary).opacity(canSubmit ? 0.3 : 0.15), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
             .disabled(!canSubmit)
@@ -269,7 +271,7 @@ struct ChatView: View {
                 .fill(.ultraThinMaterial)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.black.opacity(0.3))
+                        .fill(Color(hex: configuration.theme.colors.background).opacity(0.3))
                 )
         )
         .overlay(
@@ -277,9 +279,9 @@ struct ChatView: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.15),
-                            Color.white.opacity(0.08),
-                            Color.white.opacity(0.04)
+                            Color(hex: configuration.theme.colors.primary).opacity(0.15),
+                            Color(hex: configuration.theme.colors.primary).opacity(0.08),
+                            Color(hex: configuration.theme.colors.primary).opacity(0.04)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -287,7 +289,7 @@ struct ChatView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 12)
+        .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.4), radius: 20, x: 0, y: 12)
     }
 
     private var canSubmit: Bool {
@@ -330,7 +332,7 @@ struct ChatView: View {
     }
 
     private func selectDuration(index: Int) {
-        let duration = Configuration.accessDurations[index]
+        let duration = configuration.settings.accessDurations[index]
         decisionEngine.grantAccess(for: duration)
 
         windowManager?.hideOrb()
@@ -347,10 +349,12 @@ struct ChatView: View {
 }
 
 private struct MinimalActionButtonStyle: ButtonStyle {
+    let configuration: Configuration
+
     func makeBody(configuration: Self.Configuration) -> some View {
         configuration.label
             .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundColor(.white.opacity(0.92))
+            .foregroundColor(Color(hex: self.configuration.theme.colors.primary).opacity(0.92))
             .padding(.horizontal, 16)
             .frame(height: 40)
             .background(
@@ -358,8 +362,8 @@ private struct MinimalActionButtonStyle: ButtonStyle {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(configuration.isPressed ? 0.25 : 0.35),
-                                Color.white.opacity(configuration.isPressed ? 0.15 : 0.25)
+                                Color(hex: self.configuration.theme.colors.primary).opacity(configuration.isPressed ? 0.25 : 0.35),
+                                Color(hex: self.configuration.theme.colors.primary).opacity(configuration.isPressed ? 0.15 : 0.25)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -372,7 +376,7 @@ private struct MinimalActionButtonStyle: ButtonStyle {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+                    .stroke(Color(hex: self.configuration.theme.colors.primary).opacity(0.18), lineWidth: 0.5)
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
     }
@@ -384,6 +388,7 @@ private struct ReliablePromptTextView: NSViewRepresentable {
     @Binding var text: String
     let placeholder: String
     let onSubmit: () -> Void
+    let configuration: Configuration
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, onSubmit: onSubmit)
@@ -396,7 +401,7 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         scrollView.hasHorizontalScroller = false
         scrollView.borderType = .noBorder
 
-        let textView = PlaceholderTextView()
+        let textView = PlaceholderTextView(configuration: configuration)
         textView.placeholder = placeholder
         textView.delegate = context.coordinator
         textView.isRichText = false
@@ -406,8 +411,8 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         textView.isAutomaticTextReplacementEnabled = false
         textView.allowsUndo = true
         textView.font = NSFont.systemFont(ofSize: 14, weight: .regular)
-        textView.textColor = NSColor.white.withAlphaComponent(0.9)
-        textView.insertionPointColor = NSColor.white
+        textView.textColor = NSColor(Color(hex: configuration.theme.colors.primary).opacity(0.9))
+        textView.insertionPointColor = NSColor(Color(hex: configuration.theme.colors.primary))
         textView.backgroundColor = .clear
         textView.drawsBackground = false
         textView.textContainerInset = NSSize(width: 0, height: 7)
@@ -476,6 +481,16 @@ private struct ReliablePromptTextView: NSViewRepresentable {
 
 private final class PlaceholderTextView: NSTextView {
     var placeholder: String = ""
+    var configuration: Configuration // Added for color access
+
+    init(configuration: Configuration) {
+        self.configuration = configuration
+        super.init(frame: .zero, textContainer: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -483,7 +498,7 @@ private final class PlaceholderTextView: NSTextView {
         guard string.isEmpty else { return }
 
         let attributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: NSColor.white.withAlphaComponent(0.48),
+            .foregroundColor: NSColor(Color(hex: configuration.theme.colors.primary).opacity(0.48)),
             .font: NSFont.systemFont(ofSize: 14, weight: .regular)
         ]
         placeholder.draw(

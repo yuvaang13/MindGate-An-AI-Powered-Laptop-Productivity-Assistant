@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct OverlayView: View {
+    let configuration: Configuration
+
     var body: some View {
         ZStack {
             // Blur background
@@ -21,10 +23,10 @@ struct OverlayView: View {
                 
                 Text("Return to your work")
                     .font(.system(size: 18))
-                    .foregroundColor(Configuration.Colors.textSecondary)
+                    .foregroundColor(Color(hex: configuration.theme.colors.textSecondary))
                 
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: Configuration.Colors.accent))
+                    .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: configuration.theme.colors.accent)))
                     .scaleEffect(1.5)
             }
         }

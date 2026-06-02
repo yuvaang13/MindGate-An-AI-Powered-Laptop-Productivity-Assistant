@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import SwiftUI
+import OSLog
 
 private final class FocusablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -14,26 +15,29 @@ class WindowManager: ObservableObject {
     private var orbHostingController: NSHostingController<OrbView>?
     private var overlayHostingController: NSHostingController<OverlayView>?
     private let decisionEngine: DecisionEngine
+    private let configuration: Configuration
     private let orbWindowLevel: NSWindow.Level = .screenSaver
+    private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "WindowManager")
 
     @Published var isOrbExpanded = false
     @Published var isOverlayVisible = false
     @Published var isDistractionDetected = false
 
-    init(decisionEngine: DecisionEngine) {
+    init(decisionEngine: DecisionEngine, configuration: Configuration) {
         self.decisionEngine = decisionEngine
+        self.configuration = configuration
         setupOrbPanel()
         setupOverlayPanel()
     }
 
     // MARK: - Orb Panel Setup
     private func setupOrbPanel() {
-        let orbView = OrbView(windowManager: self, decisionEngine: decisionEngine)
+        let orbView = OrbView(windowManager: self, decisionEngine: decisionEngine, configuration: configuration)
 
         orbHostingController = NSHostingController(rootView: orbView)
 
         let panel = FocusablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: Configuration.Dimensions.orbSize, height: Configuration.Dimensions.orbSize),
+            contentRect: NSRect(x: 0, y: 0, width: configuration.theme.dimensions.orbSize, height: configuration.theme.dimensions.orbSize),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -56,12 +60,12 @@ class WindowManager: ObservableObject {
         orbPanel = panel
         positionOrbPanel()
 
-        print("🔧 Orb panel setup complete")
+        logger.info("🔧 Orb panel setup complete")
     }
 
     // MARK: - Overlay Panel Setup
     private func setupOverlayPanel() {
-        let overlayView = OverlayView()
+        let overlayView = OverlayView(configuration: configuration)
 
         overlayHostingController = NSHostingController(rootView: overlayView)
 
@@ -90,15 +94,15 @@ class WindowManager: ObservableObject {
         guard let screen = targetScreen() else { return }
         let screenFrame = screen.visibleFrame
 
-        let panelWidth = isOrbExpanded ? Configuration.Dimensions.orbExpandedWidth : Configuration.Dimensions.orbSize
-        let panelHeight = isOrbExpanded ? Configuration.Dimensions.orbExpandedHeight : Configuration.Dimensions.orbSize
+        let panelWidth = isOrbExpanded ? configuration.theme.dimensions.orbExpandedWidth : configuration.theme.dimensions.orbSize
+        let panelHeight = isOrbExpanded ? configuration.theme.dimensions.orbExpandedHeight : configuration.theme.dimensions.orbSize
 
         // Position panel on upper left edge
-        let xOffset: CGFloat = isOrbExpanded ? 18 : 12
-        let yOffset: CGFloat = isOrbExpanded ? 12 : 12
+        let xOffset: CGFloat = isOrbExpanded ? configuration.theme.dimensions.orbXOffset + 6 : configuration.theme.dimensions.orbXOffset
+        let yOffset: CGFloat = isOrbExpanded ? configuration.theme.dimensions.orbYOffset : configuration.theme.dimensions.orbYOffset
         
         // Add +50px offset when distraction is detected
-        let distractionOffset: CGFloat = isDistractionDetected ? 50 : 0
+        let distractionOffset: CGFloat = isDistractionDetected ? configuration.theme.dimensions.orbDistractionOffset : 0
         let x = screenFrame.minX + xOffset + distractionOffset
         let y = screenFrame.maxY - panelHeight - yOffset - 100 + distractionOffset
 
@@ -110,7 +114,7 @@ class WindowManager: ObservableObject {
     }
 
     private func refreshOrbView() {
-        orbHostingController?.rootView = OrbView(windowManager: self, decisionEngine: decisionEngine)
+        orbHostingController?.rootView = OrbView(windowManager: self, decisionEngine: decisionEngine, configuration: configuration)
     }
 
     private func applyOrbPanelShape(size: NSSize) {
@@ -149,22 +153,22 @@ class WindowManager: ObservableObject {
         }
 
         if panel.isVisible && isOnAnyScreen {
-            print("✅ Orb visible at frame: \(panel.frame), level: \(panel.level.rawValue)")
+            logger.info("✅ Orb visible at frame: \(panel.frame), level: \(panel.level.rawValue)")
         } else {
-            print("❌ Orb presentation failed. isVisible=\(panel.isVisible), isOnAnyScreen=\(isOnAnyScreen), frame=\(panel.frame)")
+            logger.error("❌ Orb presentation failed. isVisible=\(panel.isVisible), isOnAnyScreen=\(isOnAnyScreen), frame=\(panel.frame)")
         }
     }
 
     // MARK: - Orb Control
     func showOrb() {
-        print("🔮 Showing Orb...")
+        logger.info("🔮 Showing Orb...")
         isDistractionDetected = true
         isOrbExpanded = true  // Auto-expand to show "Why are you here?"
         positionOrbPanel()
         refreshOrbView()
 
         guard let panel = orbPanel else {
-            print("❌ Orb panel is nil")
+            logger.error("❌ Orb panel is nil")
             return
         }
 

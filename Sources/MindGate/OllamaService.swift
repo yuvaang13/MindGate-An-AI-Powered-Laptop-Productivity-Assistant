@@ -1,17 +1,19 @@
 import Foundation
+import OSLog
 
 class OllamaService {
     private let session = URLSession.shared
-    private let baseURL: String
-    private let model: String
+    private let configuration: Configuration
+    private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "OllamaService")
     
-    init(baseURL: String = Configuration.ollamaURL, model: String = Configuration.ollamaModel) {
-        self.baseURL = baseURL
-        self.model = model
+    init(configuration: Configuration) {
+        self.configuration = configuration
     }
     
     func generateResponse(prompt: String) async throws -> String {
-        guard let url = URL(string: baseURL) else {
+        logger.info("Generating response for prompt...")
+        guard let url = URL(string: configuration.settings.ollamaURL) else {
+            logger.error("Invalid Ollama URL: \(self.configuration.settings.ollamaURL)")
             throw OllamaError.invalidURL
         }
         
@@ -20,7 +22,7 @@ class OllamaService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let requestBody: [String: Any] = [
-            "model": model,
+            "model": configuration.settings.ollamaModel,
             "prompt": prompt,
             "stream": false
         ]
@@ -30,36 +32,54 @@ class OllamaService {
         let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
+            logger.error("Invalid response from Ollama server.")
             throw OllamaError.invalidResponse
         }
         
         guard httpResponse.statusCode == 200 else {
+            logger.error("Ollama server returned status code: \(httpResponse.statusCode)")
             throw OllamaError.serverError(httpResponse.statusCode)
         }
         
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let responseText = json["response"] as? String else {
+            logger.error("Failed to decode Ollama response JSON.")
             throw OllamaError.invalidResponseData
         }
         
+        logger.info("Successfully received response from Ollama.")
         return responseText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    func checkConnection() async throws -> Bool {
-        guard let url = URL(string: baseURL.replacingOccurrences(of: "/api/generate", with: "/api/tags")) else {
-            throw OllamaError.invalidURL
+    func checkConnection() async -> Bool {
+        logger.info("Checking Ollama connection...")
+        guard let url = URL(string: configuration.settings.ollamaURL.replacingOccurrences(of: "/api/generate", with: "/api/tags")) else {
+            logger.error("Invalid Ollama URL for connection check.")
+            return false
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        let (_, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OllamaError.invalidResponse
+        do {
+            let (_, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                logger.warning("Invalid response during connection check.")
+                return false
+            }
+            
+            let success = httpResponse.statusCode == 200
+            if success {
+                logger.info("Ollama connection successful.")
+            } else {
+                logger.warning("Ollama connection check failed with status code: \(httpResponse.statusCode)")
+            }
+            return success
+        } catch {
+            logger.error("Ollama connection check request failed: \(error.localizedDescription)")
+            return false
         }
-        
-        return httpResponse.statusCode == 200
     }
 }
 

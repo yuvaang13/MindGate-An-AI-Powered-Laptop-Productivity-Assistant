@@ -1,8 +1,10 @@
 import Foundation
 import ApplicationServices
 import AppKit
+import OSLog
 
 class AccessibilityManager {
+    private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "AccessibilityManager")
     func hasAccessibilityPermissions() -> Bool {
         return AXIsProcessTrusted()
     }
@@ -44,15 +46,15 @@ class AccessibilityManager {
         var windowsRef: AnyObject?
         let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
 
-        print("🔧 AXUIElementCopyAttributeValue result: \(result.rawValue)")
+        logger.debug("🔧 AXUIElementCopyAttributeValue result: \(result.rawValue)")
 
         guard result == .success,
               let windows = windowsRef as? [AXUIElement] else {
-            print("❌ Failed to get windows or windows array is empty")
+            logger.error("❌ Failed to get windows or windows array is empty for app: \(application.localizedName ?? "Unknown")")
             return []
         }
 
-        print("✅ Got \(windows.count) windows")
+        logger.debug("✅ Got \(windows.count) windows for app: \(application.localizedName ?? "Unknown")")
 
         var titles: [String] = []
         for window in windows {
@@ -62,7 +64,7 @@ class AccessibilityManager {
             if titleResult == .success,
                let title = titleRef as? String {
                 titles.append(title)
-                print("📄 Window title: \(title)")
+                logger.debug("📄 Window title: \(title)")
             }
         }
 

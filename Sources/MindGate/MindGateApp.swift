@@ -1,35 +1,46 @@
 import SwiftUI
 import AppKit
+import OSLog
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var accessibilityManager: AccessibilityManager!
     var windowManager: WindowManager!
     var workspaceMonitor: WorkspaceMonitor!
     var decisionEngine: DecisionEngine!
+    var configurationManager: ConfigurationManager!
+    private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "AppDelegate")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("🚀 MindGate: Application launched")
+        logger.info("🚀 MindGate: Application launched")
+
+        // Initialize Configuration Manager
+        configurationManager = ConfigurationManager()
+        let configuration = configurationManager.configuration
+
+        // Initialize services and engines
+        let ollamaService = OllamaService(configuration: configuration)
+        decisionEngine = DecisionEngine(ollamaService: ollamaService, configuration: configuration)
 
         // Initialize managers
         accessibilityManager = AccessibilityManager()
-        decisionEngine = DecisionEngine.shared
-        windowManager = WindowManager(decisionEngine: decisionEngine)
+        windowManager = WindowManager(decisionEngine: decisionEngine, configuration: configuration)
         workspaceMonitor = WorkspaceMonitor(
             windowManager: windowManager,
-            decisionEngine: decisionEngine
+            decisionEngine: decisionEngine,
+            configuration: configuration
         )
 
         // Check accessibility permissions
         let hasPermissions = accessibilityManager.hasAccessibilityPermissions()
-        print("🔐 Accessibility permissions: \(hasPermissions ? "✅ Granted" : "❌ Denied")")
+        logger.info("🔐 Accessibility permissions: \(hasPermissions ? "✅ Granted" : "❌ Denied")")
 
         // Start monitoring regardless of permissions for testing
         // Browser monitoring requires permissions, but app monitoring works without them
         workspaceMonitor.startMonitoring()
 
         if !hasPermissions {
-            print("⚠️ Browser monitoring may not work without accessibility permissions")
-            print("💡 Grant permissions in System Settings > Privacy & Security > Accessibility")
+            logger.warning("⚠️ Browser monitoring may not work without accessibility permissions")
+            logger.info("💡 Grant permissions in System Settings > Privacy & Security > Accessibility")
         }
     }
 

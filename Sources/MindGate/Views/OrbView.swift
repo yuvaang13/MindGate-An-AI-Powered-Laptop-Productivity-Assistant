@@ -3,23 +3,25 @@ import SwiftUI
 struct OrbView: View {
     weak var windowManager: WindowManager?
     let decisionEngine: DecisionEngine
+    let configuration: Configuration
 
-    init(windowManager: WindowManager?, decisionEngine: DecisionEngine) {
+    init(windowManager: WindowManager?, decisionEngine: DecisionEngine, configuration: Configuration) {
         self.windowManager = windowManager
         self.decisionEngine = decisionEngine
+        self.configuration = configuration
     }
 
     var body: some View {
         ZStack {
             if windowManager?.isOrbExpanded ?? false {
-                ChatView(windowManager: windowManager, decisionEngine: decisionEngine)
-                    .frame(width: Configuration.Dimensions.orbExpandedWidth, height: Configuration.Dimensions.orbExpandedHeight)
+                ChatView(windowManager: windowManager, decisionEngine: decisionEngine, configuration: configuration)
+                    .frame(width: configuration.theme.dimensions.orbExpandedWidth, height: configuration.theme.dimensions.orbExpandedHeight)
             } else {
-                FlowingLinesView(size: Configuration.Dimensions.orbSize)
-                    .frame(width: Configuration.Dimensions.orbSize, height: Configuration.Dimensions.orbSize)
+                FlowingLinesView(size: configuration.theme.dimensions.orbSize, configuration: configuration)
+                    .frame(width: configuration.theme.dimensions.orbSize, height: configuration.theme.dimensions.orbSize)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        withAnimation(.easeInOut(duration: Configuration.Animation.orbTransitionDuration)) {
+                        withAnimation(.easeInOut(duration: configuration.theme.animation.orbTransitionDuration)) {
                             windowManager?.expandOrb()
                         }
                     }
@@ -30,6 +32,7 @@ struct OrbView: View {
 
 struct FlowingLinesView: View {
     let size: CGFloat
+    let configuration: Configuration
     
     @State private var phase: CGFloat = 0
     @State private var breath: CGFloat = 0
@@ -40,8 +43,8 @@ struct FlowingLinesView: View {
             // Premium black gradient background
             LinearGradient(
                 colors: [
-                    Color.black.opacity(0.98),
-                    Color.black.opacity(0.92)
+                    Color(hex: configuration.theme.colors.background).opacity(0.98),
+                    Color(hex: configuration.theme.colors.background).opacity(0.92)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -50,7 +53,7 @@ struct FlowingLinesView: View {
             // Subtle ambient glow
             RadialGradient(
                 colors: [
-                    Color.white.opacity(glowIntensity * 0.08),
+                    Color(hex: configuration.theme.colors.primary).opacity(glowIntensity * 0.08),
                     Color.clear
                 ],
                 center: .center,
@@ -70,7 +73,7 @@ struct FlowingLinesView: View {
                         yOffset: CGFloat(index - 1) * 12
                     )
                     .stroke(
-                        Color.white.opacity(0.15 - CGFloat(index) * 0.03),
+                        Color(hex: configuration.theme.colors.primary).opacity(0.15 - CGFloat(index) * 0.03),
                         lineWidth: 2
                     )
                     .blur(radius: 1.5)
@@ -85,7 +88,7 @@ struct FlowingLinesView: View {
                         yOffset: CGFloat(index - 2) * 10
                     )
                     .stroke(
-                        Color.white.opacity(0.5 - CGFloat(index) * 0.07),
+                        Color(hex: configuration.theme.colors.primary).opacity(0.5 - CGFloat(index) * 0.07),
                         lineWidth: 1.8
                     )
                     .blur(radius: 0.8)
@@ -100,7 +103,7 @@ struct FlowingLinesView: View {
                         yOffset: (CGFloat(index) - 0.5) * 15
                     )
                     .stroke(
-                        Color.white.opacity(0.7 - CGFloat(index) * 0.1),
+                        Color(hex: configuration.theme.colors.primary).opacity(0.7 - CGFloat(index) * 0.1),
                         lineWidth: 1.2
                     )
                 }
