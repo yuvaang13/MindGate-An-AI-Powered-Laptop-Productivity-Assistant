@@ -38,18 +38,20 @@ struct ChatView: View {
                 .allowsHitTesting(false)
                 .opacity(0.15)
 
-            VStack(spacing: 18) {
-                Spacer(minLength: 42)
+            VStack(spacing: 8) {
+                Spacer(minLength: 12)
 
                 Text(headlineText)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.95))
                     .multilineTextAlignment(.center)
-                    .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.4), radius: 12, x: 0, y: 4)
+                    .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.4), radius: 8, x: 0, y: 2)
                     .tracking(0)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                Text("I noticed a distraction. Tell me the work reason and I'll decide fast.")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                Text("Distraction detected. Explain why.")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.62))
                     .multilineTextAlignment(.center)
                     .opacity(showDurationSelection || showDeniedMessage || showTakeoverView || isLoading ? 0 : 1)
@@ -58,10 +60,10 @@ struct ChatView: View {
                 contentView
                     .frame(maxWidth: .infinity)
 
-                Spacer(minLength: 36)
+                Spacer(minLength: 12)
             }
-            .padding(.horizontal, 40)
-            .padding(.vertical, 24)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
 
             closeButton
         }
@@ -146,50 +148,50 @@ struct ChatView: View {
                 .overlay(Circle().stroke(Color(hex: configuration.theme.colors.primary).opacity(0.18), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
-        .padding(.top, 48)
-        .padding(.trailing, 52)
+        .padding(.top, 36)
+        .padding(.trailing, 40)
     }
 
     private var inputView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 6) {
             assistantPromptView
             promptBox
         }
-        .padding(.horizontal, 2)
+        .padding(.horizontal, 0)
     }
 
     private var assistantPromptView: some View {
-        Text("Why do you need access right now?")
-            .font(.system(size: 16, weight: .semibold, design: .rounded))
+        Text("Why do you need access?")
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
             .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.9))
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 4)
     }
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: configuration.theme.colors.primary)))
-                .scaleEffect(1.2)
+                .scaleEffect(1.0)
 
             Text("AI is thinking...")
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.72))
                 .tracking(0.3)
         }
-        .padding(.top, 12)
+        .padding(.top, 8)
     }
 
     private var responseView: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 14) {
             Text(aiResponse)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.82))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 8)
-                .lineSpacing(4)
+                .padding(.horizontal, 4)
+                .lineSpacing(3)
                 .tracking(0.2)
 
             Button(action: {
@@ -197,67 +199,67 @@ struct ChatView: View {
                 resetState()
             }) {
                 Label("Close", systemImage: "checkmark")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
             }
             .buttonStyle(MinimalActionButtonStyle(configuration: configuration))
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 4)
     }
 
     private var durationSelectionView: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 14) {
             Text("Choose duration:")
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.68))
                 .tracking(0.3)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ForEach(0..<configuration.settings.accessDurationLabels.count, id: \.self) { index in
                     Button(action: {
                         selectDuration(index: index)
                     }) {
                         Text(configuration.settings.accessDurationLabels[index])
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(MinimalActionButtonStyle(configuration: configuration))
                 }
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 4)
     }
 
     private var deniedMessageView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Image(systemName: "xmark.shield.fill")
-                .font(.system(size: 36))
+                .font(.system(size: 32))
                 .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.9))
                 .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.3), radius: 8, x: 0, y: 4)
 
             Text("Stay focused and return to work.")
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundColor(Color(hex: configuration.theme.colors.primary).opacity(0.68))
                 .multilineTextAlignment(.center)
                 .tracking(0.2)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 4)
     }
 
     private var promptBox: some View {
-        HStack(alignment: .bottom, spacing: 12) {
+        HStack(alignment: .bottom, spacing: 10) {
             ReliablePromptTextView(
                 text: $userInput,
                 placeholder: "I need this because...",
                 onSubmit: submitRequest,
                 configuration: configuration
             )
-            .frame(height: 80)
+            .frame(height: 50)
 
             Button(action: submitRequest) {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(Color(hex: configuration.theme.colors.primary))
-                    .frame(width: 38, height: 38)
+                    .frame(width: 34, height: 34)
                     .background(
                         Circle()
                             .fill(
@@ -286,17 +288,17 @@ struct ChatView: View {
             .disabled(!canSubmit)
             .help("Submit")
         }
-        .padding(12)
+        .padding(6)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 14)
                         .fill(Color(hex: configuration.theme.colors.background).opacity(0.3))
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [
@@ -310,7 +312,7 @@ struct ChatView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.4), radius: 20, x: 0, y: 12)
+        .shadow(color: Color(hex: configuration.theme.colors.background).opacity(0.4), radius: 16, x: 0, y: 10)
     }
 
     private var canSubmit: Bool {
@@ -415,12 +417,12 @@ struct MinimalActionButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Self.Configuration) -> some View {
         configuration.label
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
             .foregroundColor(Color(hex: self.configuration.theme.colors.primary).opacity(0.92))
-            .padding(.horizontal, 16)
-            .frame(height: 40)
+            .padding(.horizontal, 14)
+            .frame(height: 36)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
@@ -432,12 +434,12 @@ struct MinimalActionButtonStyle: ButtonStyle {
                         )
                     )
                     .background(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: 8)
                             .fill(.ultraThinMaterial)
                     )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(Color(hex: self.configuration.theme.colors.primary).opacity(0.18), lineWidth: 0.5)
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
@@ -472,12 +474,14 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.allowsUndo = true
+        textView.isEditable = true
+        textView.isSelectable = true
         textView.font = NSFont.systemFont(ofSize: 14, weight: .regular)
         textView.textColor = NSColor(Color(hex: configuration.theme.colors.primary).opacity(0.9))
         textView.insertionPointColor = NSColor(Color(hex: configuration.theme.colors.primary))
         textView.backgroundColor = .clear
         textView.drawsBackground = false
-        textView.textContainerInset = NSSize(width: 0, height: 7)
+        textView.textContainerInset = NSSize(width: 0, height: 2)
         textView.textContainer?.lineFragmentPadding = 0
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: .greatestFiniteMagnitude)
@@ -485,7 +489,7 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.frame = NSRect(x: 0, y: 0, width: 240, height: 82)
+        textView.frame = NSRect(x: 0, y: 0, width: 240, height: 62)
         textView.autoresizingMask = [.width]
         textView.string = text
 
@@ -507,12 +511,6 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         }
         textView.frame.size.width = scrollView.contentSize.width
         textView.needsDisplay = true
-
-        DispatchQueue.main.async {
-            if textView.window?.firstResponder !== textView {
-                textView.window?.makeFirstResponder(textView)
-            }
-        }
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -561,7 +559,7 @@ private final class PlaceholderTextView: NSTextView {
 
         let attributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: NSColor(Color(hex: configuration.theme.colors.primary).opacity(0.48)),
-            .font: NSFont.systemFont(ofSize: 14, weight: .regular)
+            .font: NSFont.systemFont(ofSize: 13, weight: .regular)
         ]
         placeholder.draw(
             at: NSPoint(x: textContainerInset.width, y: textContainerInset.height),
