@@ -32,11 +32,7 @@ class ConfigurationManager: ObservableObject {
                 let data = try Data(contentsOf: url)
                 let decoder = JSONDecoder()
                 let configuration = try decoder.decode(Configuration.self, from: data)
-                let migratedConfiguration = migrate(configuration)
-                if migratedConfiguration.settings.ollamaModel != configuration.settings.ollamaModel {
-                    saveConfiguration(migratedConfiguration, to: url)
-                }
-                return migratedConfiguration
+                return configuration
             } catch {
                 print("Error decoding configuration: \(error.localizedDescription)")
                 // If decoding fails, return default and try to save it.
@@ -64,15 +60,5 @@ class ConfigurationManager: ObservableObject {
 
     func save() {
         ConfigurationManager.saveConfiguration(configuration, to: fileURL)
-    }
-
-    private static func migrate(_ configuration: Configuration) -> Configuration {
-        var migratedConfiguration = configuration
-
-        if migratedConfiguration.settings.ollamaModel == "lfm2.5-thinking:1.2b" {
-            migratedConfiguration.settings.ollamaModel = AppSettings.defaultSettings.ollamaModel
-        }
-
-        return migratedConfiguration
     }
 }
