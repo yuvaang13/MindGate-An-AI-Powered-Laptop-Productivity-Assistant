@@ -153,9 +153,9 @@ class WindowManager: ObservableObject {
         }
 
         if panel.isVisible && isOnAnyScreen {
-            logger.info("✅ Orb visible at frame: \(panel.frame), level: \(panel.level.rawValue)")
+            logger.info("✅ Orb visible at frame: \(panel.frame.debugDescription), level: \(panel.level.rawValue)")
         } else {
-            logger.error("❌ Orb presentation failed. isVisible=\(panel.isVisible), isOnAnyScreen=\(isOnAnyScreen), frame=\(panel.frame)")
+            logger.error("❌ Orb presentation failed. isVisible=\(panel.isVisible), isOnAnyScreen=\(isOnAnyScreen), frame=\(panel.frame.debugDescription)")
         }
     }
 

@@ -31,7 +31,7 @@ struct ChatView: View {
                         )
                 )
 
-            FlowingLinesView(size: configuration.theme.dimensions.orbExpandedWidth)
+            FlowingLinesView(size: configuration.theme.dimensions.orbExpandedWidth, configuration: configuration)
                 .allowsHitTesting(false)
                 .opacity(0.15)
 
@@ -382,7 +382,7 @@ private struct MinimalActionButtonStyle: ButtonStyle {
     }
 }
 
-private typealias AppThemeColors = Configuration.Colors
+
 
 private struct ReliablePromptTextView: NSViewRepresentable {
     @Binding var text: String
