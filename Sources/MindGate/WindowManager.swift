@@ -18,6 +18,7 @@ class WindowManager: ObservableObject {
     private let configuration: Configuration
     private let orbWindowLevel: NSWindow.Level = .screenSaver
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "WindowManager")
+    private var focusTimer: Timer?
 
     @Published var isOrbExpanded = false
     @Published var isOverlayVisible = false
@@ -194,6 +195,7 @@ class WindowManager: ObservableObject {
         }
 
         presentOrbPanel(panel)
+        startFocusPolling()
     }
 
     func hideOrb() {
@@ -201,6 +203,9 @@ class WindowManager: ObservableObject {
         isOrbExpanded = false
         isDistractionDetected = false
         refreshOrbView()
+        // Stop focus polling
+        focusTimer?.invalidate()
+        focusTimer = nil
     }
 
     func expandOrb() {
@@ -210,6 +215,31 @@ class WindowManager: ObservableObject {
 
         if let orbPanel {
             presentOrbPanel(orbPanel)
+            // Start aggressive focus polling
+            startFocusPolling()
+        }
+    }
+    
+    private func startFocusPolling() {
+        focusTimer?.invalidate()
+        focusTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pollForFirstResponder()
+            }
+        }
+    }
+    
+    private func pollForFirstResponder() {
+        guard let panel = orbPanel,
+              let contentView = panel.contentView,
+              let scrollView = contentView.subviews.first(where: { $0 is NSScrollView }),
+              let textView = (scrollView as? NSScrollView)?.documentView as? NSTextView else {
+            return
+        }
+        
+        if panel.firstResponder !== textView {
+            panel.makeKey()
+            panel.makeFirstResponder(textView)
         }
     }
 
@@ -218,6 +248,9 @@ class WindowManager: ObservableObject {
         isDistractionDetected = false
         positionOrbPanel()
         refreshOrbView()
+        // Stop focus polling
+        focusTimer?.invalidate()
+        focusTimer = nil
     }
 
     // MARK: - Overlay Control
