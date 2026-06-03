@@ -514,10 +514,9 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         // Make text view first responder
         DispatchQueue.main.async {
             if let window = scrollView.window {
-                if window.firstResponder !== textView {
-                    window.makeKey()
-                    window.makeFirstResponder(textView)
-                }
+                NSApp.activate(ignoringOtherApps: true)
+                window.makeKeyAndOrderFront(nil)
+                window.makeFirstResponder(textView)
             }
         }
     }
