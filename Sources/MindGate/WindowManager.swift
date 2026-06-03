@@ -6,6 +6,7 @@ import OSLog
 private final class FocusablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
 }
 
 @MainActor
@@ -16,7 +17,7 @@ class WindowManager: ObservableObject {
     private var overlayHostingController: NSHostingController<OverlayView>?
     private let decisionEngine: DecisionEngine
     private let configuration: Configuration
-    private let orbWindowLevel: NSWindow.Level = .screenSaver
+    private let orbWindowLevel: NSWindow.Level = .screenSaver // Use screenSaver but also ensure we can get focus
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "WindowManager")
     private var focusTimer: Timer?
 
@@ -259,8 +260,11 @@ class WindowManager: ObservableObject {
         if let textView = textView {
             if panel.firstResponder !== textView {
                 NSApp.activate(ignoringOtherApps: true)
-                panel.makeKey()
+                panel.makeKeyAndOrderFront(nil)
+                let _ = textView.becomeFirstResponder()
                 panel.makeFirstResponder(textView)
+            } else {
+                stopFocusPolling()
             }
         }
     }
