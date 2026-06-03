@@ -6,11 +6,12 @@ struct OverlayView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Semi-transparent dark background
-                Color.black.opacity(0.7)
+                // Dark translucent background - covers entire window
+                Color.black
+                    .opacity(0.7)
                     .ignoresSafeArea()
                 
-                // Liquid Glass overlay card
+                // Centered content
                 VStack(spacing: 24) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 80))
@@ -35,39 +36,32 @@ struct OverlayView: View {
                     
                     Text("Return to your work")
                         .font(.system(size: 18, weight: .medium, design: .rounded))
-                        .foregroundColor(Color(hex: configuration.theme.colors.textSecondary))
+                        .foregroundColor(.white)
                     
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: configuration.theme.colors.accent)))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .orange))
                         .scaleEffect(1.5)
                 }
                 .frame(width: 400, height: 300)
                 .padding(40)
                 .background(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(.regularMaterial)
-                        .background(
-                            RoundedRectangle(cornerRadius: 24)
-                                .fill(Color.black.opacity(0.3))
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.15),
+                                    Color.white.opacity(0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.3),
-                                            Color.white.opacity(0.1),
-                                            Color.white.opacity(0.05)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
                         )
+                        .shadow(color: .black.opacity(0.3), radius: 40)
                 )
-                .shadow(color: .black.opacity(0.3), radius: 50, x: 0, y: 20)
-                .shadow(color: .white.opacity(0.05), radius: 30, x: 0, y: 10)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }

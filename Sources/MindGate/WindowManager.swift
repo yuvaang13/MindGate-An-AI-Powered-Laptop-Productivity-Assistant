@@ -94,18 +94,19 @@ class WindowManager: ObservableObject {
         )
 
         panel.isFloatingPanel = true
-        panel.level = NSWindow.Level(Int(CGShieldingWindowLevel()) - 1)
+        panel.level = NSWindow.Level(Int(CGShieldingWindowLevel()))
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        panel.backgroundColor = NSColor.black.withAlphaComponent(0.6)
+        panel.backgroundColor = NSColor.black
         panel.isOpaque = false
         panel.hasShadow = false
-        panel.ignoresMouseEvents = false
+        panel.ignoresMouseEvents = true
+        panel.hidesOnDeactivate = false
+        
         panel.contentView = overlayHostingController?.view
         panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.6).cgColor
-        panel.hidesOnDeactivate = false
-
+        panel.contentView?.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
         overlayPanel = panel
+        logger.info("Overlay panel setup complete")
     }
 
     // MARK: - Positioning
@@ -316,17 +317,10 @@ class WindowManager: ObservableObject {
             return 
         }
         
-        // Get window under mouse using CGWindow
-        let windowID = getWindowIDAtMouseLocation()
-        var targetFrame: NSRect
-        
-        if windowID > 0, let frame = getWindowFrame(windowID: windowID) {
-            targetFrame = frame
-            logger.info("Got window frame from CGWindow ID \(windowID): \(targetFrame.debugDescription)")
-        } else {
-            targetFrame = getTargetAppWindowFrame(app: targetApp)
-            logger.info("Falling back to app window frame: \(targetFrame.debugDescription)")
-        }
+        // Get the target app window frame directly - don't rely on mouse location
+        // since the orb may be capturing mouse events
+        let targetFrame = getTargetAppWindowFrame(app: targetApp)
+        logger.info("Showing overlay over target app window frame: \(targetFrame.debugDescription)")
         
         guard let panel = overlayPanel else {
             logger.error("Overlay panel is nil")
@@ -338,48 +332,6 @@ class WindowManager: ObservableObject {
         
         isOverlayVisible = true
         logger.info("Overlay is now visible at: \(targetFrame.debugDescription)")
-    }
-    
-    private func getWindowIDAtMouseLocation() -> CGWindowID {
-        let mouseLocation = NSEvent.mouseLocation
-        var windowID: CGWindowID = 0
-        
-        let options: CGWindowListOption = [.optionOnScreenOnly]
-        let windowList = CGWindowListCopyWindowInfo(options, 0) as? [[String: Any]] ?? []
-        
-        for windowInfo in windowList {
-            guard let bounds = windowInfo[kCGWindowBounds as String] as? [String: Any],
-                  let x = bounds["X"] as? Double,
-                  let y = bounds["Y"] as? Double,
-                  let width = bounds["Width"] as? Double,
-                  let height = bounds["Height"] as? Double else {
-                continue
-            }
-            
-            let rect = CGRect(x: x, y: y, width: width, height: height)
-            if rect.contains(mouseLocation) {
-                windowID = (windowInfo[kCGWindowNumber as String] as? CGWindowID) ?? 0
-                logger.info("Found window ID \(windowID) at mouse location")
-                break
-            }
-        }
-        
-        return windowID
-    }
-    
-    private func getWindowFrame(windowID: CGWindowID) -> NSRect? {
-        let options: CGWindowListOption = [.optionOnScreenOnly]
-        let windowList = CGWindowListCopyWindowInfo(options, windowID) as? [[String: Any]] ?? []
-        
-        if let windowInfo = windowList.first,
-           let bounds = windowInfo[kCGWindowBounds as String] as? [String: Any],
-           let x = bounds["X"] as? Double,
-           let y = bounds["Y"] as? Double,
-           let width = bounds["Width"] as? Double,
-           let height = bounds["Height"] as? Double {
-            return NSRect(x: x, y: y, width: width, height: height)
-        }
-        return nil
     }
     
     private func getTargetAppWindowFrame(app: NSRunningApplication) -> NSRect {
