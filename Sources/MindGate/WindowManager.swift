@@ -2,8 +2,15 @@ import Foundation
 import AppKit
 import SwiftUI
 import OSLog
+import ApplicationServices
 
 private final class FocusablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+}
+
+private final class KeyboardFocusableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -17,9 +24,10 @@ class WindowManager: ObservableObject {
     private var overlayHostingController: NSHostingController<OverlayView>?
     private let decisionEngine: DecisionEngine
     private let configuration: Configuration
-    private let orbWindowLevel: NSWindow.Level = .popUpMenu // High level but allows keyboard input
+    private let orbWindowLevel: NSWindow.Level = .popUpMenu
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "WindowManager")
     private var focusTimer: Timer?
+    weak var targetApp: NSRunningApplication?
 
     @Published var isOrbExpanded = false
     @Published var isOverlayVisible = false
@@ -60,7 +68,6 @@ class WindowManager: ObservableObject {
         panel.becomesKeyOnlyIfNeeded = false
         panel.acceptsMouseMovedEvents = true
         panel.tabbingMode = .disallowed
-        // Ensure panel can accept keyboard focus
         panel.ignoresMouseEvents = false
         panel.contentView = orbHostingController?.view
         panel.contentView?.wantsLayer = true
@@ -79,7 +86,7 @@ class WindowManager: ObservableObject {
         overlayHostingController = NSHostingController(rootView: overlayView)
 
         let panel = NSPanel(
-            contentRect: NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            contentRect: NSRect(x: 0, y: 0, width: 1920, height: 1080),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -91,9 +98,11 @@ class WindowManager: ObservableObject {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
+        panel.ignoresMouseEvents = true
         panel.contentView = overlayHostingController?.view
         panel.contentView?.wantsLayer = true
         panel.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+        panel.hidesOnDeactivate = false
 
         overlayPanel = panel
     }
@@ -106,11 +115,9 @@ class WindowManager: ObservableObject {
         let panelWidth = isOrbExpanded ? configuration.theme.dimensions.orbExpandedWidth : configuration.theme.dimensions.orbSize
         let panelHeight = isOrbExpanded ? configuration.theme.dimensions.orbExpandedHeight : configuration.theme.dimensions.orbSize
 
-        // Position panel on upper left edge
         let xOffset: CGFloat = isOrbExpanded ? configuration.theme.dimensions.orbXOffset + 6 : configuration.theme.dimensions.orbXOffset
         let yOffset: CGFloat = isOrbExpanded ? configuration.theme.dimensions.orbYOffset : configuration.theme.dimensions.orbYOffset
         
-        // Add +50px offset when distraction is detected
         let distractionOffset: CGFloat = isDistractionDetected ? configuration.theme.dimensions.orbDistractionOffset : 0
         let x = screenFrame.minX + xOffset + distractionOffset
         let y = screenFrame.maxY - panelHeight - yOffset - 100 + distractionOffset
@@ -159,7 +166,6 @@ class WindowManager: ObservableObject {
     }
 
     private func presentOrbPanel(_ panel: NSPanel) {
-        // Use normal level when expanded to allow proper keyboard input
         panel.level = isOrbExpanded ? .normal : orbWindowLevel
         panel.alphaValue = 1
         panel.ignoresMouseEvents = false
@@ -170,7 +176,6 @@ class WindowManager: ObservableObject {
         if isOrbExpanded {
             NSApplication.shared.activate(ignoringOtherApps: true)
             panel.makeKeyAndOrderFront(nil)
-            // Make panel the main window for keyboard input
             panel.makeMain()
         }
         panel.orderFrontRegardless()
@@ -201,7 +206,6 @@ class WindowManager: ObservableObject {
         }
 
         presentOrbPanel(panel)
-        // Start focus polling after a short delay to allow view to render
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.startFocusPolling()
         }
@@ -212,7 +216,6 @@ class WindowManager: ObservableObject {
         isOrbExpanded = false
         isDistractionDetected = false
         refreshOrbView()
-        // Stop focus polling
         focusTimer?.invalidate()
         focusTimer = nil
     }
@@ -224,7 +227,6 @@ class WindowManager: ObservableObject {
 
         if let orbPanel {
             presentOrbPanel(orbPanel)
-            // Start focus polling after a short delay to allow view to render
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 self.startFocusPolling()
             }
@@ -232,12 +234,10 @@ class WindowManager: ObservableObject {
     }
     
     func requestKeyboardFocus() {
-        // Trigger focus polling when ChatView appears
         startFocusPolling()
     }
     
     func forceKeyboardFocus() {
-        // Immediately attempt to focus the text view
         pollForFirstResponder()
     }
     
@@ -248,7 +248,6 @@ class WindowManager: ObservableObject {
                 self?.pollForFirstResponder()
             }
         }
-        // No auto-stop - will be stopped when orb is collapsed
     }
     
     private func stopFocusPolling() {
@@ -268,8 +267,6 @@ class WindowManager: ObservableObject {
             NSApp.activate(ignoringOtherApps: true)
             panel.makeKeyAndOrderFront(nil)
             panel.makeMain()
-            
-            // Make first responder using window method
             panel.makeFirstResponder(textView)
         }
     }
@@ -277,19 +274,15 @@ class WindowManager: ObservableObject {
     private func findTextViewRecursively(in view: NSView?) -> NSTextView? {
         guard let view = view else { return nil }
         
-        // Check for NSScrollView with NSTextView document
         if let scrollView = view as? NSScrollView {
             return scrollView.documentView as? NSTextView ?? findTextViewRecursively(in: scrollView.contentView)
         }
         
-        // Check if this view itself is an NSTextView
         if let textView = view as? NSTextView {
             return textView
         }
         
-        // Check NSHostingView via Objective-C runtime
         if view.isMember(of: NSClassFromString("NSHostingView") ?? NSView.self) {
-            // NSHostingView stores its content in _contentView or similar
             for subview in view.subviews {
                 if let found = findTextViewRecursively(in: subview) {
                     return found
@@ -297,7 +290,6 @@ class WindowManager: ObservableObject {
             }
         }
         
-        // Recursively search subviews
         for subview in view.subviews {
             if let found = findTextViewRecursively(in: subview) {
                 return found
@@ -312,17 +304,66 @@ class WindowManager: ObservableObject {
         isDistractionDetected = false
         positionOrbPanel()
         refreshOrbView()
-        // Stop focus polling when collapsing orb
         focusTimer?.invalidate()
         focusTimer = nil
     }
 
     // MARK: - Overlay Control
     func showOverlay() {
-        guard let screen = NSScreen.main else { return }
-        overlayPanel?.setFrame(screen.frame, display: true)
+        guard let targetApp = targetApp else { return }
+        
+        let targetFrame = getTargetAppWindowFrame(app: targetApp)
+        logger.info("Showing overlay over target app window frame: \(targetFrame.debugDescription)")
+        overlayPanel?.setFrame(targetFrame, display: true)
         overlayPanel?.orderFrontRegardless()
         isOverlayVisible = true
+    }
+    
+    private func getTargetAppWindowFrame(app: NSRunningApplication) -> NSRect {
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        
+        // First try to get the main window
+        var mainWindowRef: CFTypeRef?
+        let mainWindowResult = AXUIElementCopyAttributeValue(appElement, kAXMainWindowAttribute as CFString, &mainWindowRef)
+        
+        if mainWindowResult == .success, let mainWindow = mainWindowRef {
+            var positionRef: CFTypeRef?
+            var sizeRef: CFTypeRef?
+            
+            AXUIElementCopyAttributeValue(mainWindow as! AXUIElement, kAXPositionAttribute as CFString, &positionRef)
+            AXUIElementCopyAttributeValue(mainWindow as! AXUIElement, kAXSizeAttribute as CFString, &sizeRef)
+            
+            if let position = positionRef as? NSValue,
+               let size = sizeRef as? NSValue {
+                let point = position.pointValue
+                let windowSize = size.sizeValue
+                let windowFrame = NSRect(x: point.x, y: point.y, width: windowSize.width, height: windowSize.height)
+                return windowFrame
+            }
+        }
+        
+        // Try to get any focused window
+        var focusedWindowRef: CFTypeRef?
+        let focusedResult = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedWindowRef)
+        
+        if focusedResult == .success, let focusedWindow = focusedWindowRef {
+            var positionRef: CFTypeRef?
+            var sizeRef: CFTypeRef?
+            
+            AXUIElementCopyAttributeValue(focusedWindow as! AXUIElement, kAXPositionAttribute as CFString, &positionRef)
+            AXUIElementCopyAttributeValue(focusedWindow as! AXUIElement, kAXSizeAttribute as CFString, &sizeRef)
+            
+            if let position = positionRef as? NSValue,
+               let size = sizeRef as? NSValue {
+                let point = position.pointValue
+                let windowSize = size.sizeValue
+                let windowFrame = NSRect(x: point.x, y: point.y, width: windowSize.width, height: windowSize.height)
+                return windowFrame
+            }
+        }
+        
+        // Fallback to screen frame
+        return NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
     }
 
     func hideOverlay() {

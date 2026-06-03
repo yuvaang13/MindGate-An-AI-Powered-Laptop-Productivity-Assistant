@@ -499,7 +499,7 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         scrollView.autoresizingMask = [.width, .height]
         scrollView.borderType = NSBorderType.noBorder
         scrollView.drawsBackground = false
-
+        
         return scrollView
     }
 
@@ -520,6 +520,16 @@ private struct ReliablePromptTextView: NSViewRepresentable {
             window.makeKeyAndOrderFront(nil)
             window.makeMain()
             window.makeFirstResponder(textView)
+        }
+        // Additional retry after delay for focus
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard let window = scrollView.window else { return }
+            if window.firstResponder != textView {
+                NSApp.activate(ignoringOtherApps: true)
+                window.makeKeyAndOrderFront(nil)
+                window.makeMain()
+                window.makeFirstResponder(textView)
+            }
         }
     }
 

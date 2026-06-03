@@ -188,6 +188,7 @@ class WorkspaceMonitor {
 
         Task { @MainActor in
             self.decisionEngine?.setCurrentApp(app)
+            self.windowManager?.targetApp = app // Set target app for overlay positioning
             self.windowManager?.showOrb()
         }
     }

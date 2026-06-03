@@ -73,7 +73,7 @@ struct AppSettings: Codable {
             "Safari", "Google Chrome", "Microsoft Edge", "Firefox", "Brave"
         ],
         ollamaURL: "http://localhost:11434/api/generate",
-        ollamaModel: "lfm2.5-thinking:1.2b",
+        ollamaModel: "gemma3:1b",
         accessDurations: [300, 600, 900],
         accessDurationLabels: ["5 Mins", "10 Mins", "15 Mins"],
         productiveTasks: [
