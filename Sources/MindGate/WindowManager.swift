@@ -17,7 +17,7 @@ class WindowManager: ObservableObject {
     private var overlayHostingController: NSHostingController<OverlayView>?
     private let decisionEngine: DecisionEngine
     private let configuration: Configuration
-    private let orbWindowLevel: NSWindow.Level = .screenSaver // Use screenSaver but also ensure we can get focus
+    private let orbWindowLevel: NSWindow.Level = NSWindow.Level(20) // High level for floating, allows keyboard
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "WindowManager")
     private var focusTimer: Timer?
 
