@@ -20,12 +20,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let configuration = configurationManager.configuration
 
         // Initialize services and engines
-        let ollamaService = OllamaService(configuration: configuration)
-        decisionEngine = DecisionEngine(ollamaService: ollamaService, configuration: configuration)
+        let ollamaService = OllamaService(configurationManager: configurationManager)
+        decisionEngine = DecisionEngine(ollamaService: ollamaService, configurationManager: configurationManager)
 
         // Initialize managers
         accessibilityManager = AccessibilityManager()
-        windowManager = WindowManager(decisionEngine: decisionEngine, configuration: configuration)
+        windowManager = WindowManager(decisionEngine: decisionEngine, configurationManager: configurationManager)
         workspaceMonitor = WorkspaceMonitor(
             windowManager: windowManager,
             decisionEngine: decisionEngine,

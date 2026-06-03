@@ -3,25 +3,25 @@ import OSLog
 
 class OllamaService {
     private let session = URLSession.shared
-    private let configuration: Configuration
+    private let configurationManager: ConfigurationManager
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "OllamaService")
     
-    init(configuration: Configuration) {
-        self.configuration = configuration
+    init(configurationManager: ConfigurationManager) {
+        self.configurationManager = configurationManager
     }
     
     func generateResponse(prompt: String) async throws -> String {
         logger.info("Generating response for prompt...")
         
         // Validate and sanitize the URL
-        let rawURL = configuration.settings.ollamaURL
+        let rawURL = configurationManager.configuration.settings.ollamaURL
         guard let url = URL(string: rawURL) else {
             logger.error("Invalid Ollama URL: \(rawURL)")
             throw OllamaError.invalidURL
         }
         
         // Validate model name
-        let modelName = configuration.settings.ollamaModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelName = configurationManager.configuration.settings.ollamaModel.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !modelName.isEmpty else {
             logger.error("Ollama model name is empty")
             throw OllamaError.invalidResponse
@@ -78,7 +78,7 @@ class OllamaService {
     
     func checkConnection() async -> Bool {
         logger.info("Checking Ollama connection...")
-        guard let url = URL(string: configuration.settings.ollamaURL.replacingOccurrences(of: "/api/generate", with: "/api/tags")) else {
+        guard let url = URL(string: configurationManager.configuration.settings.ollamaURL.replacingOccurrences(of: "/api/generate", with: "/api/tags")) else {
             logger.error("Invalid Ollama URL for connection check.")
             return false
         }

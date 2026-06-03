@@ -24,7 +24,7 @@ class WindowManager: ObservableObject {
     private var orbHostingController: NSHostingController<OrbView>?
     private var overlayHostingController: NSHostingController<OverlayView>?
     private let decisionEngine: DecisionEngine
-    private let configuration: Configuration
+    private let configurationManager: ConfigurationManager
     private let orbWindowLevel: NSWindow.Level = .popUpMenu
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "WindowManager")
     private var focusTimer: Timer?
@@ -36,9 +36,9 @@ class WindowManager: ObservableObject {
     @Published var isOverlayVisible = false
     @Published var isDistractionDetected = false
 
-    init(decisionEngine: DecisionEngine, configuration: Configuration) {
+    init(decisionEngine: DecisionEngine, configurationManager: ConfigurationManager) {
         self.decisionEngine = decisionEngine
-        self.configuration = configuration
+        self.configurationManager = configurationManager
         setupOrbPanel()
         setupOverlayPanel()
     }
@@ -48,14 +48,14 @@ class WindowManager: ObservableObject {
         let orbView = OrbView(
             windowManager: self,
             decisionEngine: decisionEngine,
-            configuration: configuration,
+            configuration: configurationManager.configuration,
             isExpanded: isOrbExpanded
         )
 
         orbHostingController = NSHostingController(rootView: orbView)
 
         let panel = FocusablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: configuration.theme.dimensions.orbSize, height: configuration.theme.dimensions.orbSize),
+            contentRect: NSRect(x: 0, y: 0, width: configurationManager.configuration.theme.dimensions.orbSize, height: configurationManager.configuration.theme.dimensions.orbSize),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -84,7 +84,7 @@ class WindowManager: ObservableObject {
 
     // MARK: - Overlay Panel Setup
     private func setupOverlayPanel() {
-        let overlayView = OverlayView(configuration: configuration)
+        let overlayView = OverlayView(configurationManager: configurationManager)
 
         overlayHostingController = NSHostingController(rootView: overlayView)
 
@@ -117,13 +117,13 @@ class WindowManager: ObservableObject {
         guard let screen = targetScreen() else { return }
         let screenFrame = screen.visibleFrame
 
-        let panelWidth = isOrbExpanded ? configuration.theme.dimensions.orbExpandedWidth : configuration.theme.dimensions.orbSize
-        let panelHeight = isOrbExpanded ? configuration.theme.dimensions.orbExpandedHeight : configuration.theme.dimensions.orbSize
+        let panelWidth = isOrbExpanded ? configurationManager.configuration.theme.dimensions.orbExpandedWidth : configurationManager.configuration.theme.dimensions.orbSize
+        let panelHeight = isOrbExpanded ? configurationManager.configuration.theme.dimensions.orbExpandedHeight : configurationManager.configuration.theme.dimensions.orbSize
 
-        let xOffset: CGFloat = isOrbExpanded ? configuration.theme.dimensions.orbXOffset + 6 : configuration.theme.dimensions.orbXOffset
-        let yOffset: CGFloat = isOrbExpanded ? configuration.theme.dimensions.orbYOffset : configuration.theme.dimensions.orbYOffset
+        let xOffset: CGFloat = isOrbExpanded ? configurationManager.configuration.theme.dimensions.orbXOffset + 6 : configurationManager.configuration.theme.dimensions.orbXOffset
+        let yOffset: CGFloat = isOrbExpanded ? configurationManager.configuration.theme.dimensions.orbYOffset : configurationManager.configuration.theme.dimensions.orbYOffset
         
-        let distractionOffset: CGFloat = isDistractionDetected ? configuration.theme.dimensions.orbDistractionOffset : 0
+        let distractionOffset: CGFloat = isDistractionDetected ? configurationManager.configuration.theme.dimensions.orbDistractionOffset : 0
         let x = screenFrame.minX + xOffset + distractionOffset
         let y = screenFrame.maxY - panelHeight - yOffset - 100 + distractionOffset
 
@@ -138,14 +138,14 @@ class WindowManager: ObservableObject {
         orbHostingController?.rootView = OrbView(
             windowManager: self,
             decisionEngine: decisionEngine,
-            configuration: configuration,
+            configuration: configurationManager.configuration,
             isExpanded: isOrbExpanded
         )
         orbHostingController?.view.frame = NSRect(
             origin: .zero,
             size: NSSize(
-                width: isOrbExpanded ? configuration.theme.dimensions.orbExpandedWidth : configuration.theme.dimensions.orbSize,
-                height: isOrbExpanded ? configuration.theme.dimensions.orbExpandedHeight : configuration.theme.dimensions.orbSize
+                width: isOrbExpanded ? configurationManager.configuration.theme.dimensions.orbExpandedWidth : configurationManager.configuration.theme.dimensions.orbSize,
+                height: isOrbExpanded ? configurationManager.configuration.theme.dimensions.orbExpandedHeight : configurationManager.configuration.theme.dimensions.orbSize
             )
         )
         orbHostingController?.view.needsLayout = true

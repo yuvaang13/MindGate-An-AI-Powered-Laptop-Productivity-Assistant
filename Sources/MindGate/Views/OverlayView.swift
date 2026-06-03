@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct OverlayView: View {
-    let configuration: Configuration
+    let configurationManager: ConfigurationManager
 
     var body: some View {
+        let configuration = configurationManager.configuration
         GeometryReader { geometry in
             ZStack {
                 // Dark translucent background - covers entire window
@@ -17,12 +18,12 @@ struct OverlayView: View {
                         .font(.system(size: 80))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [.red, .orange],
+                                colors: [Color(hex: configuration.theme.colors.error), Color(hex: configuration.theme.colors.warning)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .shadow(color: .red.opacity(0.5), radius: 20)
+                        .shadow(color: Color(hex: configuration.theme.colors.error).opacity(0.5), radius: 20)
                     
                     Text("Access Denied")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -36,10 +37,10 @@ struct OverlayView: View {
                     
                     Text("Return to your work")
                         .font(.system(size: 18, weight: .medium, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(Color(hex: configuration.theme.colors.text))
                     
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .orange))
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: configuration.theme.colors.warning)))
                         .scaleEffect(1.5)
                 }
                 .frame(width: 400, height: 300)

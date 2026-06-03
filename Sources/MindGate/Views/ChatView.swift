@@ -12,7 +12,7 @@ struct ChatView: View {
     @State private var showDurationSelection: Bool = false
     @State private var showDeniedMessage: Bool = false
     @State private var showTakeoverView: Bool = false // New state for takeover view
-    @State private var countdownSeconds: Int = 20 // Initial countdown time
+    @State private var countdownSeconds: Int = 0 // Initial countdown time
     @State private var timer: Timer? // Timer instance
     @State private var hasSubmitted: Bool = false // Track if user submitted once
 
@@ -362,6 +362,7 @@ struct ChatView: View {
                         // Hide overlay after delay but keep orb for continued interaction
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                             windowManager?.hideOverlay()
+                            self.showTakeoverView = true // Show takeover view after overlay hides
                         }
                     }
                 }
@@ -387,7 +388,7 @@ struct ChatView: View {
         showDurationSelection = false
         showDeniedMessage = false
         showTakeoverView = false // Reset takeover view state
-        countdownSeconds = 20 // Reset countdown
+        countdownSeconds = configuration.settings.justificationCountdownDuration // Reset countdown
         stopCountdown() // Stop any active timer
         hasSubmitted = false
     }
@@ -399,7 +400,7 @@ struct ChatView: View {
         showDurationSelection = false
         showDeniedMessage = false
         showTakeoverView = false
-        countdownSeconds = 20
+        countdownSeconds = configuration.settings.justificationCountdownDuration
         stopCountdown()
         startCountdown()
         // Keep orb visible and allow continued chat with AI
@@ -409,7 +410,7 @@ struct ChatView: View {
         // Invalidate any existing timer first
         stopCountdown()
 
-        countdownSeconds = 20 // Set initial countdown time
+        countdownSeconds = configuration.settings.justificationCountdownDuration // Set initial countdown time
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if self.countdownSeconds > 0 {
                 self.countdownSeconds -= 1

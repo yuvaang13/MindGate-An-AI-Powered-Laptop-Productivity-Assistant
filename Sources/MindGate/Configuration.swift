@@ -103,6 +103,8 @@ struct UITheme: Codable {
         let surface: String
         let text: String
         let textSecondary: String
+        let error: String
+        let warning: String
     }
 
     struct Animation: Codable {
@@ -133,7 +135,9 @@ struct UITheme: Codable {
             background: "000000",
             surface: "000000",
             text: "FFFFFF",
-            textSecondary: "FFFFFFB3"
+            textSecondary: "FFFFFFB3",
+            error: "FF453A", // System Red
+            warning: "FF9F0A" // System Orange
         ),
         animation: UITheme.Animation(
             orbBreathingDuration: 2.0,

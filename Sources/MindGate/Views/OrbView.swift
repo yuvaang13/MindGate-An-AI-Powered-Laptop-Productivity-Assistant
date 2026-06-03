@@ -3,27 +3,27 @@ import SwiftUI
 struct OrbView: View {
     weak var windowManager: WindowManager?
     let decisionEngine: DecisionEngine
-    let configuration: Configuration
+    let configurationManager: ConfigurationManager
     let isExpanded: Bool
 
-    init(windowManager: WindowManager?, decisionEngine: DecisionEngine, configuration: Configuration, isExpanded: Bool) {
+    init(windowManager: WindowManager?, decisionEngine: DecisionEngine, configurationManager: ConfigurationManager, isExpanded: Bool) {
         self.windowManager = windowManager
         self.decisionEngine = decisionEngine
-        self.configuration = configuration
+        self.configurationManager = configurationManager
         self.isExpanded = isExpanded
     }
 
     var body: some View {
         ZStack {
             if isExpanded {
-                ChatView(windowManager: windowManager, decisionEngine: decisionEngine, configuration: configuration)
-                    .frame(width: configuration.theme.dimensions.orbExpandedWidth, height: configuration.theme.dimensions.orbExpandedHeight)
+                ChatView(windowManager: windowManager, decisionEngine: decisionEngine, configuration: configurationManager.configuration)
+                    .frame(width: configurationManager.configuration.theme.dimensions.orbExpandedWidth, height: configurationManager.configuration.theme.dimensions.orbExpandedHeight)
             } else {
-                FlowingLinesView(size: configuration.theme.dimensions.orbSize, configuration: configuration)
-                    .frame(width: configuration.theme.dimensions.orbSize, height: configuration.theme.dimensions.orbSize)
+                FlowingLinesView(size: configurationManager.configuration.theme.dimensions.orbSize, configuration: configurationManager)
+                    .frame(width: configurationManager.configuration.theme.dimensions.orbSize, height: configurationManager.configuration.theme.dimensions.orbSize)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        withAnimation(.easeInOut(duration: configuration.theme.animation.orbTransitionDuration)) {
+                        withAnimation(.easeInOut(duration: configurationManager.configuration.theme.animation.orbTransitionDuration)) {
                             windowManager?.expandOrb()
                         }
                     }
@@ -34,7 +34,7 @@ struct OrbView: View {
 
 struct FlowingLinesView: View {
     let size: CGFloat
-    let configuration: Configuration
+    let configuration: ConfigurationManager
     
     @State private var phase: CGFloat = 0
     @State private var breath: CGFloat = 0
@@ -45,8 +45,8 @@ struct FlowingLinesView: View {
             // Premium black gradient background
             LinearGradient(
                 colors: [
-                    Color(hex: configuration.theme.colors.background).opacity(0.98),
-                    Color(hex: configuration.theme.colors.background).opacity(0.92)
+                    Color(hex: configuration.configuration.theme.colors.background).opacity(0.98),
+                    Color(hex: configuration.configuration.theme.colors.background).opacity(0.92)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -55,7 +55,7 @@ struct FlowingLinesView: View {
             // Subtle ambient glow
             RadialGradient(
                 colors: [
-                    Color(hex: configuration.theme.colors.primary).opacity(glowIntensity * 0.08),
+                    Color(hex: configuration.configuration.theme.colors.primary).opacity(glowIntensity * 0.08),
                     Color.clear
                 ],
                 center: .center,
@@ -75,7 +75,7 @@ struct FlowingLinesView: View {
                         yOffset: CGFloat(index - 1) * 12
                     )
                     .stroke(
-                        Color(hex: configuration.theme.colors.primary).opacity(0.15 - CGFloat(index) * 0.03),
+                        Color(hex: configuration.configuration.theme.colors.primary).opacity(0.15 - CGFloat(index) * 0.03),
                         lineWidth: 2
                     )
                     .blur(radius: 1.5)
@@ -90,7 +90,7 @@ struct FlowingLinesView: View {
                         yOffset: CGFloat(index - 2) * 10
                     )
                     .stroke(
-                        Color(hex: configuration.theme.colors.primary).opacity(0.5 - CGFloat(index) * 0.07),
+                        Color(hex: configuration.configuration.theme.colors.primary).opacity(0.5 - CGFloat(index) * 0.07),
                         lineWidth: 1.8
                     )
                     .blur(radius: 0.8)
@@ -105,7 +105,7 @@ struct FlowingLinesView: View {
                         yOffset: (CGFloat(index) - 0.5) * 15
                     )
                     .stroke(
-                        Color(hex: configuration.theme.colors.primary).opacity(0.7 - CGFloat(index) * 0.1),
+                        Color(hex: configuration.configuration.theme.colors.primary).opacity(0.7 - CGFloat(index) * 0.1),
                         lineWidth: 1.2
                     )
                 }
@@ -128,6 +128,30 @@ struct FlowingLinesView: View {
                 glowIntensity = 0.8
             }
         }
+    }
+}
+
+struct OrbBreathingView: View {
+    let configurationManager: ConfigurationManager
+
+    @State private var scale: CGFloat = 1.0
+    @State private var opacity: CGFloat = 0.0
+
+    var body: some View {
+        Circle()
+            .fill(Color(hex: configurationManager.configuration.theme.colors.accent).opacity(0.6))
+            .frame(width: 40, height: 40)
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .animation(
+                .easeInOut(duration: configurationManager.configuration.theme.animation.orbBreathingDuration)
+                .repeatForever(autoreverses: true),
+                value: scale
+            )
+            .onAppear {
+                scale = 1.2
+                opacity = 0.4
+            }
     }
 }
 

@@ -9,16 +9,16 @@ struct DecisionResult {
 
 class DecisionEngine {
     private let ollamaService: OllamaService
-    private let configuration: Configuration
+    private let configurationManager: ConfigurationManager
     private var currentApp: NSRunningApplication?
     private var accessTimer: Timer?
     private var grantedAppIdentifier: String?
     private var accessExpiresAt: Date?
     private let logger = Logger(subsystem: "com.mindgate.MindGate", category: "DecisionEngine")
 
-    init(ollamaService: OllamaService, configuration: Configuration) {
+    init(ollamaService: OllamaService, configurationManager: ConfigurationManager) {
         self.ollamaService = ollamaService
-        self.configuration = configuration
+        self.configurationManager = configurationManager
     }
 
     func setCurrentApp(_ app: NSRunningApplication) {
@@ -29,9 +29,12 @@ class DecisionEngine {
         logger.info("User justification received: \"\(userInput)\"")
 
         let systemPrompt = """
-        You are a highly advanced, strict productivity mentor. The user is trying to access a distracting app. Their reason is: '\(userInput)'.
-        If this is genuinely essential for immediate work, task tracking, or safety, respond only with the word 'YES'.
-        If it is an excuse, mindless scrolling, or procrastination, reply only with the word 'NO'.
+        You are a highly advanced, strict productivity mentor. The user is trying to access a distracting app. Their reason is: \'\(userInput)\'.
+        If this is genuinely essential for immediate work, task tracking, or safety, respond only with the word \'YES\'.
+        If it is an excuse, mindless scrolling, or procrastination, reply only with the word \'NO\'.
+        
+        Current productive tasks: \(configurationManager.configuration.settings.productiveTasks.joined(separator: ", "))
+        Current productive apps: \(configurationManager.configuration.settings.productiveApps.joined(separator: ", "))
         """
 
         do {
