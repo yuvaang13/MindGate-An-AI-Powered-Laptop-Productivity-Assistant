@@ -1,5 +1,5 @@
-import { BrowserWindow, screen, shell } from 'electron';
-import { Configuration } from '../types';
+import { BrowserWindow, screen } from 'electron';
+import { Configuration, ActiveWindowInfo } from '../types';
 
 export class WindowManager {
   private orbWindow: BrowserWindow | null = null;
@@ -7,7 +7,7 @@ export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
   private configuration: Configuration;
   private isOrbExpanded = false;
-  private targetWindowId: number | null = null;
+  private targetWindow: ActiveWindowInfo | null = null;
 
   constructor(configuration: Configuration) {
     this.configuration = configuration;
@@ -15,6 +15,10 @@ export class WindowManager {
 
   setMainWindow(window: BrowserWindow) {
     this.mainWindow = window;
+  }
+
+  setTargetWindow(window: ActiveWindowInfo | null) {
+    this.targetWindow = window;
   }
 
   createOrbWindow(): BrowserWindow {
@@ -44,12 +48,12 @@ export class WindowManager {
     return this.orbWindow;
   }
 
-  createOverlayWindow(frame: Electron.Rectangle): BrowserWindow {
+  createOverlayWindow(frame: { x: number; y: number; width: number; height: number }): BrowserWindow {
     this.overlayWindow = new BrowserWindow({
-      x: frame.x,
-      y: frame.y,
-      width: frame.width,
-      height: frame.height,
+      x: Math.round(frame.x),
+      y: Math.round(frame.y),
+      width: Math.round(frame.width),
+      height: Math.round(frame.height),
       transparent: true,
       frame: false,
       alwaysOnTop: true,
@@ -74,14 +78,22 @@ export class WindowManager {
     };
   }
 
-  async showOrb(targetWindowId?: number) {
-    this.targetWindowId = targetWindowId ?? null;
+  async showOrb(targetWindow?: ActiveWindowInfo) {
+    this.targetWindow = targetWindow ?? null;
     this.isOrbExpanded = true;
     
     if (!this.orbWindow) {
       this.createOrbWindow();
     }
     
+    if (this.targetWindow && this.targetWindow.frame.width > 0) {
+      const frame = this.targetWindow.frame;
+      this.orbWindow?.setPosition(
+        Math.round(frame.x + frame.width - this.configuration.theme.dimensions.orbExpandedWidth - this.configuration.theme.dimensions.orbXOffset),
+        Math.round(frame.y + this.configuration.theme.dimensions.orbYOffset)
+      );
+    }
+
     this.orbWindow?.setSize(
       this.configuration.theme.dimensions.orbExpandedWidth,
       this.configuration.theme.dimensions.orbExpandedHeight
@@ -101,34 +113,28 @@ export class WindowManager {
     }
   }
 
-  showOverlay(frame?: Electron.Rectangle) {
-    const targetFrame = frame ?? this.getTargetWindowFrame();
-    if (targetFrame && !this.overlayWindow) {
-      this.createOverlayWindow(targetFrame);
+  showOverlay(targetWindow?: ActiveWindowInfo) {
+    const window = targetWindow ?? this.targetWindow;
+    if (!window || !window.frame) {
+      return;
+    }
+
+    const frame = window.frame;
+    if (!frame.width || !frame.height) {
+      return;
+    }
+
+    if (!this.overlayWindow) {
+      this.createOverlayWindow(frame);
+    } else {
+      this.overlayWindow.setPosition(Math.round(frame.x), Math.round(frame.y));
+      this.overlayWindow.setSize(Math.round(frame.width), Math.round(frame.height));
     }
     this.overlayWindow?.show();
   }
 
   hideOverlay() {
     this.overlayWindow?.hide();
-  }
-
-  private getTargetWindowFrame(): Electron.Rectangle | null {
-    const mousePoint = screen.getCursorScreenPoint();
-    const displays = screen.getAllDisplays();
-    
-    for (const display of displays) {
-      if (
-        mousePoint.x >= display.bounds.x &&
-        mousePoint.x <= display.bounds.x + display.bounds.width &&
-        mousePoint.y >= display.bounds.y &&
-        mousePoint.y <= display.bounds.y + display.bounds.height
-      ) {
-        return display.bounds;
-      }
-    }
-    
-    return null;
   }
 
   grantAccess(duration: number) {

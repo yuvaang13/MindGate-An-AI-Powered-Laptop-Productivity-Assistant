@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
 import { WindowManager } from './src/services/windowManager';
+import { WorkspaceMonitor } from './src/services/workspaceMonitor';
 import { OllamaService } from './src/services/ollamaService';
 import { Configuration } from './src/types';
 
@@ -47,10 +48,15 @@ const configuration: Configuration = {
 };
 
 const windowManager = new WindowManager(configuration);
+const workspaceMonitor = new WorkspaceMonitor(configuration);
 const ollamaService = new OllamaService(configuration.settings.ollamaURL, configuration.settings.ollamaModel);
 
+let mainWindow: BrowserWindow | null = null;
+let orbWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
+
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 400,
     height: 600,
     webPreferences: {
@@ -67,10 +73,24 @@ function createWindow() {
   }
 
   windowManager.setMainWindow(mainWindow);
+  orbWindow = windowManager.createOrbWindow();
+  overlayWindow = windowManager.createOverlayWindow({ x: 0, y: 0, width: 100, height: 100 });
 }
 
-app.whenReady().then(() => {
+async function setupMonitoring() {
+  if (!mainWindow) return;
+  
+  workspaceMonitor.onDistractionDetected = (activeWindow) => {
+    windowManager.setTargetWindow(activeWindow);
+    windowManager.showOverlay(activeWindow);
+    mainWindow?.webContents.send('show-orb');
+  };
+  workspaceMonitor.startMonitoring();
+}
+
+app.whenReady().then(async () => {
   createWindow();
+  await setupMonitoring();
 
   ipcMain.handle('check-ollama-connection', async () => {
     return await ollamaService.checkConnection();
@@ -86,6 +106,12 @@ app.whenReady().then(() => {
 
   ipcMain.handle('get-configuration', () => {
     return configuration;
+  });
+
+  ipcMain.handle('hide-orb', () => {
+    windowManager.hideOrb();
+    windowManager.hideOverlay();
+    mainWindow?.webContents.send('hide-orb');
   });
 });
 

@@ -13,18 +13,30 @@ const App: React.FC = () => {
     window.mindgateAPI.getConfiguration().then(setConfiguration);
   }, []);
 
+  useEffect(() => {
+    window.mindgateAPI.onShowOrb(() => {
+      setIsOrbExpanded(true);
+    });
+
+    window.mindgateAPI.onHideOrb(() => {
+      setIsOrbExpanded(false);
+    });
+  }, []);
+
   const handleExpand = () => {
     setIsOrbExpanded(true);
   };
 
   const handleClose = () => {
     setIsOrbExpanded(false);
+    window.mindgateAPI.hideOrb();
   };
 
   const handleSubmit = async (userInput: string) => {
     const result = await window.mindgateAPI.evaluateRequest(userInput);
     if (result.isApproved) {
-      // Show duration selection
+      window.mindgateAPI.grantAccess(300);
+      setIsOrbExpanded(false);
     }
   };
 

@@ -2,6 +2,16 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Configuration } from '../../types';
 
+export const LiquidGlassButtonStyle: React.CSSProperties = {
+  background: 'linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.2))',
+  border: 'none',
+  borderRadius: '50%',
+  cursor: 'pointer',
+  color: 'white',
+  fontSize: 14,
+  padding: 0,
+};
+
 interface FlowingLinesViewProps {
   size: number;
   configuration: Configuration;

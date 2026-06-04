@@ -52,3 +52,14 @@ export interface DecisionResult {
   isApproved: boolean;
   message: string;
 }
+
+export interface ActiveWindowInfo {
+  processName: string;
+  windowTitle: string;
+  frame: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}

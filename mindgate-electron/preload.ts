@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   evaluateRequest: (userInput: string) => ipcRenderer.invoke('evaluate-request', userInput),
   grantAccess: (duration: number) => ipcRenderer.invoke('grant-access', duration),
   getConfiguration: () => ipcRenderer.invoke('get-configuration'),
+  hideOrb: () => ipcRenderer.invoke('hide-orb'),
   
   onShowOrb: (callback: () => void) => {
     ipcRenderer.on('show-orb', callback);
@@ -31,6 +32,7 @@ declare global {
       evaluateRequest: (userInput: string) => Promise<{ isApproved: boolean; message: string }>;
       grantAccess: (duration: number) => void;
       getConfiguration: () => Promise<Configuration>;
+      hideOrb: () => void;
       onShowOrb: (callback: () => void) => void;
       onHideOrb: (callback: () => void) => void;
       onShowOverlay: (callback: () => void) => void;

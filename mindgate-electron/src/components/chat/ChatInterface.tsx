@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Configuration, DecisionResult } from '../../types';
-import { LiquidGlassButtonStyle } from '../orb/Orb';
 
 interface ChatInterfaceProps {
   configuration: Configuration;
-  onSubmit: (userInput: string) => Promise<void>;
+  onSubmit: (userInput: string) => Promise<DecisionResult | void>;
   onClose: () => void;
 }
 
@@ -16,7 +15,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
   const [showDurationSelection, setShowDurationSelection] = useState(false);
   const [showDeniedMessage, setShowDeniedMessage] = useState(false);
   const [countdownSeconds, setCountdownSeconds] = useState(0);
-  const [displayedText, setDisplayedText] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -31,7 +29,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
     if (!userInput.trim() || isLoading) return;
     
     setIsLoading(true);
-    await onSubmit(userInput);
+    const result = await onSubmit(userInput);
+    if (!result?.isApproved) {
+      setShowDeniedMessage(true);
+    }
     setIsLoading(false);
   };
 
