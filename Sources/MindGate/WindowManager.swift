@@ -17,6 +17,12 @@ private final class KeyboardFocusableWindow: NSWindow {
     override var acceptsFirstResponder: Bool { true }
 }
 
+private final class OverlayPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+}
+
 @MainActor
 class WindowManager: ObservableObject {
     private var orbPanel: NSPanel?
@@ -90,7 +96,7 @@ class WindowManager: ObservableObject {
 
         overlayHostingController = NSHostingController(rootView: overlayView)
 
-        let panel = NSPanel(
+        let panel = OverlayPanel(
             contentRect: NSRect(x: 0, y: 0, width: 1920, height: 1080),
             styleMask: [.borderless],
             backing: .buffered,
@@ -98,7 +104,7 @@ class WindowManager: ObservableObject {
         )
 
         panel.isFloatingPanel = true
-        panel.level = .screenSaver
+        panel.level = .screenSaver + 1
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary]
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -107,11 +113,29 @@ class WindowManager: ObservableObject {
         panel.isExcludedFromWindowsMenu = true
         panel.hidesOnDeactivate = false
         panel.acceptsMouseMovedEvents = false
+        panel.alphaValue = 1.0
 
-        // Set content view for liquid glass effect
-        panel.contentView = overlayHostingController?.view
-        panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+        // Create container view for visual effect background
+        let containerView = NSView(frame: panel.contentLayoutRect)
+        containerView.wantsLayer = true
+        containerView.layer?.backgroundColor = NSColor.clear.cgColor
+
+        // Add NSVisualEffectView as background
+        let visualEffectView = NSVisualEffectView(frame: containerView.bounds)
+        visualEffectView.material = .hudWindow
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.state = .active
+        visualEffectView.autoresizingMask = [.width, .height]
+        containerView.addSubview(visualEffectView)
+
+        // Add hosting view on top
+        if let hostingView = overlayHostingController?.view {
+            hostingView.frame = containerView.bounds
+            hostingView.autoresizingMask = [.width, .height]
+            containerView.addSubview(hostingView, positioned: .above, relativeTo: visualEffectView)
+        }
+
+        panel.contentView = containerView
         overlayPanel = panel
         logger.info("Overlay panel setup complete")
     }
@@ -388,15 +412,29 @@ class WindowManager: ObservableObject {
             return
         }
 
+        // Ensure proper window level for overlay
+        panel.level = .screenSaver + 1
+
+        // Update panel frame and container view
         panel.setFrame(targetFrame, display: true)
+
+        // Update the container view frame to match
+        if let containerView = panel.contentView {
+            containerView.frame = targetFrame
+            if let hostingView = overlayHostingController?.view {
+                hostingView.frame = targetFrame
+            }
+        }
+
         NSApp.activate(ignoringOtherApps: true)
         panel.orderFrontRegardless()
         panel.makeKeyAndOrderFront(nil)
-        panel.makeMain()
+
+        panel.alphaValue = 1.0
         panel.displayIfNeeded()
 
         isOverlayVisible = true
-        logger.info("Overlay visibility check: isVisible=\(panel.isVisible), frame=\(panel.frame.debugDescription), screenCount=\(NSScreen.screens.count)")
+        logger.info("Overlay visibility check: isVisible=\(panel.isVisible), frame=\(panel.frame.debugDescription), level=\(panel.level.rawValue), screenCount=\(NSScreen.screens.count)")
     }
 
     private func getTargetAppWindowFrame(app: NSRunningApplication) -> NSRect? {
