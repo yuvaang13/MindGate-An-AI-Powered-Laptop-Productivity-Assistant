@@ -60,11 +60,20 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
     this.accessExpiresAt = Date.now() + (duration * 1000);
 
     this.accessTimer = setTimeout(() => {
-      this.revokeAccess();
+      this.revokeAccessAndReappear();
     }, duration * 1000);
   }
 
+  private revokeAccessAndReappear(): void {
+    this.accessTimer = null;
+    const expiredIdentifier = this.grantedAppIdentifier;
+    this.grantedAppIdentifier = null;
+    this.accessExpiresAt = null;
+    this.onAccessExpired?.(expiredIdentifier);
+  }
+
   private revokeAccess(): void {
+    this.accessTimer && clearTimeout(this.accessTimer);
     this.accessTimer = null;
     this.grantedAppIdentifier = null;
     this.accessExpiresAt = null;
@@ -76,7 +85,7 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
     }
 
     if (this.accessExpiresAt <= Date.now()) {
-      this.revokeAccess();
+      this.revokeAccessAndReappear();
       return false;
     }
 
@@ -90,6 +99,15 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
     this.accessExpiresAt = null;
   }
 
+  isAccessExpired(): boolean {
+    return this.accessExpiresAt !== null && this.accessExpiresAt <= Date.now();
+  }
+
+  getRemainingTime(): number {
+    if (!this.accessExpiresAt) return 0;
+    return Math.max(0, Math.ceil((this.accessExpiresAt - Date.now()) / 1000));
+  }
+
   private getAppIdentifier(app: ActiveWindowInfo): string {
     return app.bundleID || app.exeName || app.processName;
   }
@@ -101,4 +119,6 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
   updateConfiguration(config: Configuration) {
     this.configuration = config;
   }
+
+  onAccessExpired?: (appIdentifier: string | null) => void;
 }

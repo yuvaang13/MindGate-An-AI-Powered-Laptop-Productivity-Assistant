@@ -15,7 +15,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
   const [showDurationSelection, setShowDurationSelection] = useState(false);
   const [showDeniedMessage, setShowDeniedMessage] = useState(false);
   const [countdownSeconds, setCountdownSeconds] = useState(0);
-  const [showTakeoverView, setShowTakeoverView] = useState(false);
+  const [remainingAccessTime, setRemainingAccessTime] = useState<number | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -23,6 +23,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
         setCountdownSeconds(s => s - 1);
       } else if (countdownSeconds === 0 && !isLoading && !showDurationSelection && !showDeniedMessage && !aiResponse && userInput === '') {
         handleCountdownExpired();
+      }
+      
+      if (showDurationSelection) {
+        window.mindgateAPI.getRemainingAccessTime().then(time => {
+          if (time > 0) {
+            setRemainingAccessTime(time);
+          }
+        });
       }
     }, 1000);
     return () => clearInterval(timer);
@@ -89,7 +97,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
     setIsLoading(false);
     setShowDurationSelection(false);
     setShowDeniedMessage(false);
-    setShowTakeoverView(false);
     setCountdownSeconds(0);
   };
 
@@ -193,6 +200,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
               }}>
                 Choose duration:
               </p>
+              {remainingAccessTime !== null && (
+                <p style={{
+                  fontSize: 11,
+                  color: 'rgba(255,255,255,0.5)',
+                  textAlign: 'center',
+                  margin: 0
+                }}>
+                  Access expires in: {remainingAccessTime}s
+                </p>
+              )}
               <div style={{ display: 'flex', gap: 8 }}>
                 {configuration.settings.accessDurationLabels.map((label, index) => (
                   <button
@@ -331,16 +348,21 @@ const TypingText: React.FC<TypingTextProps> = ({ text, configuration }) => {
   const [displayedText, setDisplayedText] = React.useState('');
 
   React.useEffect(() => {
-    let index = 0;
+    const words = text.split(' ');
     setDisplayedText('');
+    let wordIndex = 0;
+    
     const timer = setInterval(() => {
-      if (index < text.length) {
-        setDisplayedText(prev => prev + text[index]);
-        index++;
+      if (wordIndex < words.length) {
+        setDisplayedText(prev => {
+          const newText = prev + (prev ? ' ' : '') + words[wordIndex];
+          return newText;
+        });
+        wordIndex++;
       } else {
         clearInterval(timer);
       }
-    }, 20);
+    }, 100);
     return () => clearInterval(timer);
   }, [text]);
 

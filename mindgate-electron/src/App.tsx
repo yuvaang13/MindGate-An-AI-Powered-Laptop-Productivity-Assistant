@@ -9,10 +9,15 @@ const App: React.FC = () => {
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [isOrbExpanded, setIsOrbExpanded] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [isOllamaConnected, setIsOllamaConnected] = useState(true);
+  const [hasAccessibilityAccess, setHasAccessibilityAccess] = useState(true);
+  const [isMac, setIsMac] = useState(false);
   const [windowManager] = useState(() => new WindowManager({} as Configuration));
 
   useEffect(() => {
     window.mindgateAPI.getConfiguration().then(setConfiguration);
+    window.mindgateAPI.checkAccessibilityPermission().then(setHasAccessibilityAccess);
+    setIsMac(process.platform === 'darwin');
   }, []);
 
   useEffect(() => {
@@ -30,6 +35,10 @@ const App: React.FC = () => {
 
     window.mindgateAPI.onHideOverlay(() => {
       setIsOverlayVisible(false);
+    });
+
+    window.mindgateAPI.onOllamaStatusChanged((connected) => {
+      setIsOllamaConnected(connected);
     });
   }, []);
 
@@ -62,6 +71,37 @@ const App: React.FC = () => {
 
   return (
     <>
+      {!hasAccessibilityAccess && isMac && (
+        <div style={{
+          position: 'fixed',
+          top: 10,
+          right: 10,
+          background: '#FF9F0A',
+          color: 'white',
+          padding: '6px 12px',
+          borderRadius: 6,
+          fontSize: 12,
+          zIndex: 99999,
+          cursor: 'pointer'
+        }} onClick={() => window.mindgateAPI.requestAccessibilityPermission()}>
+          Accessibility Permission Needed - Click to Grant
+        </div>
+      )}
+      {!isOllamaConnected && (
+        <div style={{
+          position: 'fixed',
+          top: hasAccessibilityAccess ? 10 : 40,
+          right: 10,
+          background: '#FF453A',
+          color: 'white',
+          padding: '6px 12px',
+          borderRadius: 6,
+          fontSize: 12,
+          zIndex: 99999
+        }}>
+          Ollama Disconnected
+        </div>
+      )}
       {isOrbExpanded ? (
         <ChatInterface
           configuration={configuration}

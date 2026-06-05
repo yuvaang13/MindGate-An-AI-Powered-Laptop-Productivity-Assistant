@@ -69,37 +69,32 @@ if ($process) {
     if (!exeName) return null;
 
     try {
-      let script: string;
       const normalizedExe = exeName.toLowerCase();
+      const processName = normalizedExe.replace('.exe', '').replace('.EXE', '');
 
-      if (normalizedExe.includes('chrome') || normalizedExe.includes('msedge') || normalizedExe.includes('brave')) {
-        script = `
-$process = Get-Process -Name "$([System.IO.Path]::GetFileNameWithoutExtension('${exeName}'))" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1
-$url = ""
-foreach ($proc in $process) {
-  try {
-    $url = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Browser\\Session\\" -ErrorAction SilentlyContinue).Url
-  } catch {}
-}
-Write-Output $url
-`;
-      } else if (normalizedExe.includes('firefox')) {
-        script = `
-$process = Get-Process -Name "firefox" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1
-$url = ""
-if ($process) {
-  try {
-    $url = (Get-Process -Name "firefox" -ErrorAction SilentlyContinue).MainWindowTitle -replace " - Mozilla Firefox$", ""
-  } catch {}
-}
-Write-Output $url
-`;
+      const script = `
+$processes = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 }
+if ($processes) {
+  $activeProc = $processes | Sort-Object -Property StartTime -Descending | Select-Object -First 1
+  if ($activeProc -and $activeProc.MainWindowTitle) {
+    $title = $activeProc.MainWindowTitle
+    if ($title -match "^(https?://)") {
+      Write-Output $title
+    } else {
+      $urlMatch = $title -match "^[^-]+?(https?://)?(.*)"
+      if ($urlMatch) {
+        Write-Output $Matches[2]
       } else {
-        return null;
+        Write-Output $title
       }
+    }
+  }
+}
+`;
 
       const { stdout } = await execAsync(`powershell -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '\\"')}"`, { timeout: 3000 });
-      return stdout.trim() || null;
+      const url = stdout.trim();
+      return url || null;
     } catch (error) {
       console.error('Failed to get browser URL:', error);
       return null;
@@ -110,17 +105,11 @@ Write-Output $url
     if (!exeName) return false;
 
     try {
+      const processName = exeName.toLowerCase().replace('.exe', '').replace('.EXE', '');
       const script = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-"@
-$processes = Get-Process -Name "$([System.IO.Path]::GetFileNameWithoutExtension('${exeName}'))" -ErrorAction SilentlyContinue
-foreach ($proc in $processes) {
-  try {
-    $proc.CloseMainWindow() | Out-Null
-  } catch {}
+$processes = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+if ($processes) {
+  $processes.CloseMainWindow() | Out-Null
 }
 `;
       await execAsync(`powershell -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '\\"')}"`, { timeout: 3000 });
@@ -136,9 +125,7 @@ foreach ($proc in $processes) {
       const script = `
 $process = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($process) {
-  $process | ForEach-Object {
-    $_.CloseMainWindow() | Out-Null
-  }
+  $process.CloseMainWindow() | Out-Null
 }
 `;
       await execAsync(`powershell -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '\\"')}"`, { timeout: 3000 });

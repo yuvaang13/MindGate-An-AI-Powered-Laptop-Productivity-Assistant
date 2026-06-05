@@ -85,12 +85,26 @@ tell application id "${bundleID}"
   return URL of active tab of front window
 end tell
 `;
+      } else if (bundleID.includes('firefox')) {
+        script = `
+tell application id "${bundleID}"
+  if (count of windows) is 0 then return ""
+  set windowTitle to name of front window
+  return windowTitle
+end tell
+`;
       } else {
         return null;
       }
 
       const { stdout } = await execAsync(`osascript -e '${script}'`, { timeout: 3000 });
-      return stdout.trim() || null;
+      const result = stdout.trim();
+      
+      if (bundleID.includes('firefox')) {
+        return result || null;
+      }
+      
+      return result || null;
     } catch (error) {
       console.error('Failed to get browser URL:', error);
       return null;

@@ -90,8 +90,11 @@ export class WorkspaceMonitor {
 
   private isBrowser(window: ActiveWindowInfo): boolean {
     const processName = window.processName.toLowerCase();
+    const exeName = window.exeName?.toLowerCase() || '';
+    const bundleID = window.bundleID?.toLowerCase() || '';
+    
     return this.configuration.settings.monitoredBrowsers.some(browser =>
-      processName.includes(browser.toLowerCase())
+      processName.includes(browser.toLowerCase()) || exeName.includes(browser.toLowerCase()) || bundleID.includes(browser.toLowerCase())
     );
   }
 

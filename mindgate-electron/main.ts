@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, screen, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, screen, Menu, nativeImage, systemPreferences } from 'electron';
 import { join } from 'path';
 import { ConfigurationService } from './src/services/configurationService';
 import { DecisionEngine } from './src/services/decisionEngine';
@@ -16,6 +16,22 @@ let tray: Tray | null = null;
 let orbWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
+
+let isOllamaConnected: boolean = false;
+
+async function checkAccessibilityPermissions(): Promise<boolean> {
+  if (process.platform === 'darwin') {
+    const status = systemPreferences.accessibilityPrivilegeStatus();
+    return status === 'authorized' || status === 'allowed';
+  }
+  return true;
+}
+
+async function requestAccessibilityPermissions(): Promise<void> {
+  if (process.platform === 'darwin') {
+    systemPreferences.askForAccessibilityAccess();
+  }
+}
 
 async function initialize() {
   configurationService = new ConfigurationService();
@@ -35,6 +51,12 @@ async function initialize() {
   setupIPC();
   setupEventHandlers();
   createTray();
+  
+  isOllamaConnected = await decisionEngine.checkOllamaConnection();
+  if (!isOllamaConnected) {
+    tray?.setTitle('⚠️');
+    tray?.setToolTip('MindGate - Ollama not connected. Please start Ollama.');
+  }
 }
 
 function createWindows() {
@@ -57,6 +79,8 @@ function createWindows() {
     focusable: true,
     minimizable: false,
     maximizable: false,
+    show: false,
+    visible: false,
     webPreferences: {
       preload: join(__dirname, '../preload.js'),
       contextIsolation: true,
@@ -78,7 +102,9 @@ function createWindows() {
     resizable: false,
     movable: false,
     hasShadow: false,
-    focusable: false
+    focusable: false,
+    show: false,
+    visible: false
   });
 
   overlayWindow.setIgnoreMouseEvents(true);
@@ -93,10 +119,33 @@ function createWindows() {
 
 function setupIPC() {
   ipcMain.handle('check-ollama-connection', async () => {
-    return await decisionEngine.checkOllamaConnection();
+    const connected = await decisionEngine.checkOllamaConnection();
+    if (connected) {
+      tray?.setTitle('');
+      tray?.setToolTip('MindGate Productivity Assistant');
+    } else {
+      tray?.setTitle('⚠️');
+      tray?.setToolTip('MindGate - Ollama not connected');
+    }
+    return connected;
+  });
+
+  ipcMain.handle('check-accessibility-permission', async () => {
+    return await checkAccessibilityPermissions();
+  });
+
+  ipcMain.handle('request-accessibility-permission', async () => {
+    await requestAccessibilityPermissions();
   });
 
   ipcMain.handle('evaluate-request', async (_event, userInput: string) => {
+    const connected = await decisionEngine.checkOllamaConnection();
+    if (!connected) {
+      return {
+        isApproved: false,
+        message: 'Ollama service unavailable. Please start Ollama to use MindGate.'
+      };
+    }
     return await decisionEngine.evaluateRequest(userInput);
   });
 
@@ -146,6 +195,25 @@ function setupIPC() {
     decisionEngine.updateConfiguration(configurationService.getConfiguration());
     workspaceMonitor.updateConfiguration(configurationService.getConfiguration());
   });
+
+  ipcMain.handle('get-remaining-access-time', () => {
+    return decisionEngine.getRemainingTime();
+  });
+
+  setInterval(async () => {
+    const connected = await decisionEngine.checkOllamaConnection();
+    if (connected !== isOllamaConnected) {
+      isOllamaConnected = connected;
+      if (isOllamaConnected) {
+        tray?.setTitle('');
+        tray?.setToolTip('MindGate Productivity Assistant');
+      } else {
+        tray?.setTitle('⚠️');
+        tray?.setToolTip('MindGate - Ollama not connected');
+      }
+      orbWindow?.webContents.send('ollama-status-changed', isOllamaConnected);
+    }
+  }, 30000);
 }
 
 function setupEventHandlers() {
@@ -159,6 +227,15 @@ function setupEventHandlers() {
   workspaceMonitor.onClearPrompt = () => {
     windowManager.hideOrb();
     orbWindow?.webContents.send('hide-orb');
+  };
+
+  decisionEngine.onAccessExpired = () => {
+    const storedTargetApp = windowManager.getTargetApp();
+    if (storedTargetApp) {
+      setTimeout(() => {
+        workspaceMonitor.onDistractionDetected?.(storedTargetApp);
+      }, 100);
+    }
   };
 
   workspaceMonitor.startMonitoring();
@@ -183,9 +260,26 @@ function createTray() {
       {
         label: 'Settings',
         click: () => {
-          if (settingsWindow) {
-            settingsWindow.show();
+          if (!settingsWindow) {
+            settingsWindow = new BrowserWindow({
+              width: 600,
+              height: 800,
+              webPreferences: {
+                preload: join(__dirname, '../preload.js'),
+                contextIsolation: true,
+                nodeIntegration: false
+              }
+            });
+            settingsWindow.on('closed', () => {
+              settingsWindow = null;
+            });
+            if (process.env.VITE_DEV_SERVER_URL) {
+              settingsWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+            } else {
+              settingsWindow.loadFile(join(__dirname, '../dist/index.html'));
+            }
           }
+          settingsWindow.show();
         }
       },
       { type: 'separator' },
@@ -202,7 +296,16 @@ function createTray() {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === 'darwin') {
+    app.dock.hide();
+  }
   await initialize();
+});
+
+app.on('activate', () => {
+  if (settingsWindow) {
+    settingsWindow.show();
+  }
 });
 
 app.on('window-all-closed', () => {
