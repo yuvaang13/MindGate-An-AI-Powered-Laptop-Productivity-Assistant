@@ -47,12 +47,12 @@ struct TakeoverView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.white.opacity(0.12))
-                            .background(.ultraThinMaterial.opacity(0.5))
+                            .fill(Color.white.opacity(0.07))
+                            .background(.ultraThinMaterial.opacity(0.35))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 0.8)
+                            .stroke(Color.white.opacity(0.14), lineWidth: 0.8)
                     )
                 }
                 .frame(maxHeight: 150)
@@ -91,20 +91,20 @@ struct TakeoverView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.25),
-                            Color.white.opacity(0.15),
-                            Color.black.opacity(0.25)
+                            Color.white.opacity(0.18),
+                            Color.white.opacity(0.08),
+                            Color.black.opacity(0.12)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-                .background(.regularMaterial.opacity(0.8))
+                .background(.ultraThinMaterial.opacity(0.4))
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 0.8)
                 )
-                .shadow(color: Color.black.opacity(0.3), radius: 30, x: 0, y: 15)
+                .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 8)
         )
     }
 
@@ -136,25 +136,25 @@ struct LiquidGlassButtonStyle: ButtonStyle {
             .foregroundStyle(Color.white)
             .padding(.horizontal, 12)
             .frame(height: 34)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.25),
-                                Color.white.opacity(0.15),
-                                Color.white.opacity(0.08)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .background(.ultraThinMaterial.opacity(0.6))
-                    .overlay(
+                    .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 0.8)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.16),
+                                        Color.white.opacity(0.10),
+                                        Color.white.opacity(0.04)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .background(.ultraThinMaterial.opacity(0.45))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
+                            )
                     )
-            )
             .scaleEffect(configuration.isPressed ? 0.95 : 1)
             .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }

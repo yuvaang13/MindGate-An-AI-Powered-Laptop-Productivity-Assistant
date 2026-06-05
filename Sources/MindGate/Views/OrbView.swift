@@ -64,13 +64,13 @@ struct FlowingLinesView: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.5, style: .continuous)
-                .fill(.ultraThinMaterial.opacity(0.5))
+                .fill(.ultraThinMaterial.opacity(0.35))
                 .background(
                     RoundedRectangle(cornerRadius: size * 0.5, style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color(hex: configuration.theme.colors.primary).opacity(0.08),
+                                    Color(hex: configuration.theme.colors.primary).opacity(0.04),
                                     Color.clear
                                 ],
                                 startPoint: .topLeading,
@@ -83,7 +83,7 @@ struct FlowingLinesView: View {
                         .stroke(
                             LinearGradient(
                                 colors: [
-                                    Color(hex: configuration.theme.colors.primary).opacity(0.18),
+                                    Color(hex: configuration.theme.colors.primary).opacity(0.12),
                                     Color.clear
                                 ],
                                 startPoint: .topLeading,

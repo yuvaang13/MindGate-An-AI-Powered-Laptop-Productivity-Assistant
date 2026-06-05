@@ -16,7 +16,9 @@ private final class OrbWindowDelegate: NSObject, NSWindowDelegate {
         guard let textView = textView else { return }
         guard let window = notification.object as? NSWindow else { return }
         NSApp.activate(ignoringOtherApps: true)
-        window.makeFirstResponder(textView)
+        DispatchQueue.main.async {
+            window.makeFirstResponder(textView)
+        }
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -90,7 +92,7 @@ class WindowManager: ObservableObject {
         containerView.wantsLayer = true
         containerView.layer?.backgroundColor = NSColor.clear.cgColor
         let visualEffectView = NSVisualEffectView(frame: containerView.bounds)
-        visualEffectView.material = .hudWindow
+        visualEffectView.material = .underWindowBackground
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.state = .active
         visualEffectView.autoresizingMask = [.width, .height]
@@ -130,7 +132,7 @@ class WindowManager: ObservableObject {
         containerView.wantsLayer = true
         containerView.layer?.backgroundColor = NSColor.clear.cgColor
         let visualEffectView = NSVisualEffectView(frame: containerView.bounds)
-        visualEffectView.material = .hudWindow
+        visualEffectView.material = .underWindowBackground
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.state = .active
         visualEffectView.autoresizingMask = [.width, .height]
@@ -183,14 +185,6 @@ class WindowManager: ObservableObject {
             subview.layer?.cornerRadius = 16
             subview.layer?.cornerCurve = .continuous
         }
-        let blurLayer = CALayer()
-        blurLayer.frame = contentView.bounds
-        blurLayer.backgroundColor = NSColor.black.withAlphaComponent(0.05).cgColor
-        blurLayer.cornerRadius = 16
-        blurLayer.cornerCurve = .continuous
-        blurLayer.opacity = 0.15
-        blurLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-        contentView.layer?.addSublayer(blurLayer)
         contentView.layer?.backgroundColor = NSColor.clear.cgColor
     }
 

@@ -7,7 +7,7 @@ struct OverlayView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                Color.black.opacity(0.4)
+                Color.black.opacity(0.25)
                     .ignoresSafeArea()
 
                 VStack(spacing: 24) {
@@ -20,10 +20,10 @@ struct OverlayView: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.white.opacity(0.25),
-                                    Color.white.opacity(0.12),
-                                    Color.white.opacity(0.05),
-                                    Color.black.opacity(0.15)
+                                    Color.white.opacity(0.18),
+                                    Color.white.opacity(0.08),
+                                    Color.white.opacity(0.02),
+                                    Color.clear
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -34,7 +34,7 @@ struct OverlayView: View {
                                 .fill(
                                     RadialGradient(
                                         colors: [
-                                            Color.white.opacity(0.4),
+                                            Color.white.opacity(0.25),
                                             Color.clear
                                         ],
                                         center: UnitPoint(x: 0.3, y: 0.3),
@@ -48,17 +48,17 @@ struct OverlayView: View {
                                 .stroke(
                                     LinearGradient(
                                         colors: [
-                                            Color.white.opacity(0.4),
-                                            Color.white.opacity(0.2),
+                                            Color.white.opacity(0.25),
+                                            Color.white.opacity(0.10),
                                             .clear
                                         ],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     ),
-                                    lineWidth: 1.5
+                                    lineWidth: 1.0
                                 )
                         )
-                        .shadow(color: Color.black.opacity(0.25), radius: 50, x: 0, y: 20)
+                        .shadow(color: Color.black.opacity(0.25), radius: 30, x: 0, y: 10)
                 )
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
