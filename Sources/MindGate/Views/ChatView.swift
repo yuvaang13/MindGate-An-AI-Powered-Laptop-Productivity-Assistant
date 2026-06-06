@@ -556,6 +556,11 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         textView.textContainer?.size.width = 280
         textView.string = text
         textView.placeholder = placeholder
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.allowsUndo = true
+        
+        // Set initial selection
         let endPosition = textView.string.count
         textView.setSelectedRange(NSRange(location: endPosition, length: 0))
         textView.needsDisplay = true
@@ -563,6 +568,13 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         context.coordinator.register(textView: textView)
         if let windowManager = windowManager {
             windowManager.registerOrbTextView(textView)
+        }
+        
+        // Aggressively focus the text view after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            textView.window?.makeKeyAndOrderFront(nil)
+            textView.window?.makeFirstResponder(textView)
+            print("PlaceholderTextView - Initial focus attempt, firstResponder: \(textView.window?.firstResponder == textView)")
         }
 
         return textView
@@ -574,10 +586,23 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         if textView.placeholder != placeholder {
             textView.placeholder = placeholder
         }
+        
+        // Only update text if it's actually different (prevents focus loss during typing)
         if textView.string != text {
+            // Check if the text view is actively being edited
             let isFirstResponder = textView.window?.firstResponder == textView
+            let wasEditing = isFirstResponder && !textView.string.isEmpty
+            
+            // If user is actively typing, don't override their input
+            if wasEditing {
+                // Let the user's input take precedence
+                return
+            }
+            
+            // Otherwise, update from the binding
             let selectedRange = textView.selectedRange()
             textView.string = text
+            
             if isFirstResponder {
                 textView.setSelectedRange(selectedRange)
             } else {
@@ -653,14 +678,36 @@ private final class PlaceholderTextView: NSTextView {
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         print("PlaceholderTextView becomeFirstResponder -> \(result)")
+        
+        // Ensure window is key and text view can receive input
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.window?.makeKeyAndOrderFront(nil)
+            self.window?.makeFirstResponder(self)
+        }
+        
         return result
     }
 
     override func mouseDown(with event: NSEvent) {
         print("PlaceholderTextView mouseDown")
+        
+        // Force window to become key and this view to be first responder
         window?.makeKeyAndOrderFront(nil)
-        window?.makeFirstResponder(self)
+        
+        // Small delay to ensure window is key before making this first responder
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            _ = self.window?.makeFirstResponder(self)
+            print("PlaceholderTextView - First responder set: \(self.window?.firstResponder == self)")
+        }
+        
         super.mouseDown(with: event)
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        print("PlaceholderTextView keyDown: \(event.characters ?? "")")
+        super.keyDown(with: event)
     }
 
     override func draw(_ dirtyRect: NSRect) {

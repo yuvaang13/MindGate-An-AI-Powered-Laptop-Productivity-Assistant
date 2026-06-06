@@ -51,13 +51,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
       !aiResponse &&
       textareaRef.current
     ) {
-      const timer = setTimeout(() => {
-        textareaRef.current?.focus();
-        console.debug('Textarea focused in input view');
-      }, 50);
-      return () => clearTimeout(timer);
+      // Ensure focus is set immediately and persist it
+      textareaRef.current.focus();
+      console.debug('Textarea focused in input view');
     }
   }, [showDurationSelection, showDeniedMessage, isLoading, aiResponse]);
+
+  // Add click handler to ensure textarea always receives focus on click
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const handleClick = () => {
+      textarea.focus();
+      console.debug('Textarea clicked and focused');
+    };
+
+    textarea.addEventListener('click', handleClick);
+    return () => textarea.removeEventListener('click', handleClick);
+  }, []);
 
   const handleTextareaFocus = () => {
     setIsTextareaFocused(true);
@@ -377,10 +389,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                     transition: 'border-color 0.15s ease, box-shadow 0.15s ease, border-radius 0.15s ease',
                     pointerEvents: 'auto',
                     WebkitAppearance: 'none',
-                    fontFamily: 'inherit'
+                    fontFamily: 'inherit',
+                    WebkitUserSelect: 'text',
+                    userSelect: 'text',
+                    cursor: 'text'
                   }}
                   autoComplete="off"
                   spellCheck="false"
+                  autoFocus
                 />
                 <button
                   onClick={handleSubmit}
