@@ -70,6 +70,7 @@ struct ChatView: View {
                     .tracking(0)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
+                    .allowsHitTesting(false)
 
                 Text("Distraction detected. Explain why.")
                     .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -77,6 +78,7 @@ struct ChatView: View {
                     .multilineTextAlignment(.center)
                     .opacity(showDurationSelection || showDeniedMessage || showTakeoverView || isLoading ? 0 : 1)
                     .tracking(0.2)
+                    .allowsHitTesting(false)
 
                 contentView
                     .frame(maxWidth: .infinity)
