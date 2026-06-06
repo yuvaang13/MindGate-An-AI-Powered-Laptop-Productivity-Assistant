@@ -302,7 +302,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                     fontSize: 13,
                     resize: 'none',
                     outline: 'none',
-                    minHeight: 50
+                    minHeight: 50,
+                    padding: '8px 12px'
                   }}
                   onKeyDown={(e) => e.metaKey && e.key === 'Enter' && handleSubmit()}
                 />
