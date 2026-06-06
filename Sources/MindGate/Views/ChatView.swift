@@ -554,7 +554,8 @@ private struct ReliablePromptTextView: NSViewRepresentable {
         textView.textContainer?.size.width = 280
         textView.string = text
         textView.placeholder = placeholder
-        textView.setSelectedRange(NSRange(location: 0, length: 0))
+        let endPosition = textView.string.count
+        textView.setSelectedRange(NSRange(location: endPosition, length: 0))
         textView.needsDisplay = true
 
         let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 280, height: 52))
@@ -581,7 +582,15 @@ private struct ReliablePromptTextView: NSViewRepresentable {
             textView.placeholder = placeholder
         }
         if textView.string != text {
+            let isFirstResponder = textView.window?.firstResponder == textView
+            let selectedRange = textView.selectedRange()
             textView.string = text
+            if isFirstResponder {
+                textView.setSelectedRange(selectedRange)
+            } else {
+                let endPosition = textView.string.count
+                textView.setSelectedRange(NSRange(location: endPosition, length: 0))
+            }
         }
         textView.needsDisplay = true
     }
