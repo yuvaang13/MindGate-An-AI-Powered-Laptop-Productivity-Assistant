@@ -42,6 +42,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
     startCountdown();
   }, []);
 
+  // Enhanced focus management: focus textarea when in input view
   useEffect(() => {
     if (
       !showDurationSelection &&
@@ -52,17 +53,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
     ) {
       const timer = setTimeout(() => {
         textareaRef.current?.focus();
+        console.debug('Textarea focused in input view');
       }, 50);
       return () => clearTimeout(timer);
     }
   }, [showDurationSelection, showDeniedMessage, isLoading, aiResponse]);
 
-  const handleTextareaFocus = () => setIsTextareaFocused(true);
-  const handleTextareaBlur = () => setIsTextareaFocused(false);
+  const handleTextareaFocus = () => {
+    setIsTextareaFocused(true);
+    console.debug('Textarea focus event triggered');
+  };
+
+  const handleTextareaBlur = () => {
+    setIsTextareaFocused(false);
+    console.debug('Textarea blur event triggered');
+  };
 
   const handleSubmit = async () => {
-    if (!userInput.trim() || isLoading) return;
+    if (!userInput.trim() || isLoading) {
+      console.debug('Submit blocked - empty input or loading');
+      return;
+    }
 
+    console.debug(`Submitting user input: "${userInput}"`);
     setIsLoading(true);
     try {
       const result = await onSubmit(userInput);
@@ -77,6 +90,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
         setShowDeniedMessage(true);
       }
     } catch (error) {
+      console.error('Error submitting user input:', error);
       setAiResponse('Error: Unable to get AI response');
       setShowDeniedMessage(true);
     }
@@ -85,9 +99,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
 
   const startCountdown = () => {
     setCountdownSeconds(configuration.settings.justificationCountdownDuration);
+    console.debug(`Countdown started: ${configuration.settings.justificationCountdownDuration}s`);
   };
 
   const handleCountdownExpired = () => {
+    console.warn('Countdown expired - access denied');
     setAiResponse("Time's up! Access denied.");
     setShowDeniedMessage(true);
     window.mindgateAPI.closeDistraction();
@@ -105,6 +121,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
   };
 
   const selectDuration = (index: number) => {
+    console.debug(`Duration selected: index ${index}`);
     const duration = configuration.settings.accessDurations[index];
     window.mindgateAPI.grantAccess(index);
     onClose();
@@ -118,6 +135,22 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
     setShowDurationSelection(false);
     setShowDeniedMessage(false);
     setCountdownSeconds(0);
+    console.debug('State reset');
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setUserInput(newValue);
+    console.debug(`Textarea input changed: "${newValue}"`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isMetaOrCtrl = e.metaKey || e.ctrlKey;
+    if (isMetaOrCtrl && e.key === 'Enter') {
+      console.debug('Keyboard shortcut triggered (Cmd+Enter or Ctrl+Enter)');
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   return (
@@ -137,7 +170,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
         gap: 8,
         position: 'relative',
         backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)'
+        WebkitBackdropFilter: 'blur(20px)',
+        pointerEvents: 'auto'
       }}
     >
       <button
@@ -153,7 +187,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
           border: 'none',
           cursor: 'pointer',
           color: 'white',
-          fontSize: 12
+          fontSize: 12,
+          pointerEvents: 'auto',
+          zIndex: 10
         }}
       >
         ×
@@ -166,7 +202,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
         fontWeight: 'bold',
         color: 'white',
         textAlign: 'center',
-        margin: 0
+        margin: 0,
+        pointerEvents: 'none'
       }}>
         {headlineText()}
       </h2>
@@ -176,13 +213,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
           fontSize: 11,
           color: 'rgba(255,255,255,0.55)',
           textAlign: 'center',
-          margin: 0
+          margin: 0,
+          pointerEvents: 'none'
         }}>
           Distraction detected. Explain why.
         </p>
       )}
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', pointerEvents: 'auto' }}>
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -190,7 +228,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12 }}
+              style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, pointerEvents: 'none' }}
             >
               <div
                 style={{
@@ -210,13 +248,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 14, pointerEvents: 'auto' }}
             >
               <p style={{
                 fontSize: 13,
                 color: 'rgba(255,255,255,0.68)',
                 textAlign: 'center',
-                margin: 0
+                margin: 0,
+                pointerEvents: 'none'
               }}>
                 Choose duration:
               </p>
@@ -225,12 +264,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                   fontSize: 11,
                   color: 'rgba(255,255,255,0.5)',
                   textAlign: 'center',
-                  margin: 0
+                  margin: 0,
+                  pointerEvents: 'none'
                 }}>
                   Access expires in: {remainingAccessTime}s
                 </p>
               )}
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, pointerEvents: 'auto' }}>
                 {configuration.settings.accessDurationLabels.map((label, index) => (
                   <button
                     key={index}
@@ -243,7 +283,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                       border: 'none',
                       color: 'white',
                       cursor: 'pointer',
-                      fontSize: 13
+                      fontSize: 13,
+                      pointerEvents: 'auto'
                     }}
                   >
                     {label}
@@ -257,7 +298,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              style={{ textAlign: 'center' }}
+              style={{ textAlign: 'center', pointerEvents: 'auto' }}
             >
               <TypingText text={aiResponse} configuration={configuration} />
               <button
@@ -278,7 +319,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                   border: 'none',
                   color: 'white',
                   cursor: 'pointer',
-                  fontSize: 13
+                  fontSize: 13,
+                  pointerEvents: 'auto'
                 }}
               >
                 {showDeniedMessage ? 'Try Again' : 'Close'}
@@ -290,14 +332,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 6, pointerEvents: 'auto' }}
             >
               <p style={{
                 fontSize: 13,
                 fontWeight: 'semibold',
                 color: 'rgba(255,255,255,0.9)',
                 textAlign: 'center',
-                margin: '0 4px'
+                margin: '0 4px',
+                pointerEvents: 'none'
               }}>
                 Why do you need access?
               </p>
@@ -308,14 +351,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                 padding: 6,
                 borderRadius: 16,
                 background: 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.15), rgba(0,0,0,0.2))',
-                maxWidth: '100%'
+                maxWidth: '100%',
+                pointerEvents: 'auto'
               }}>
                 <textarea
                   ref={textareaRef}
                   value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
+                  onChange={handleTextChange}
                   onFocus={handleTextareaFocus}
                   onBlur={handleTextareaBlur}
+                  onKeyDown={handleKeyDown}
                   placeholder="I need this because..."
                   style={{
                     flex: 1,
@@ -329,15 +374,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                     padding: '8px 12px',
                     borderRadius: isTextareaFocused ? 10 : 0,
                     boxShadow: isTextareaFocused ? 'inset 0 0 0 1px rgba(255,255,255,0.25)' : 'none',
-                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease, border-radius 0.15s ease'
+                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease, border-radius 0.15s ease',
+                    pointerEvents: 'auto',
+                    WebkitAppearance: 'none',
+                    fontFamily: 'inherit'
                   }}
-                  onKeyDown={(e) => {
-                    const isMetaOrCtrl = e.metaKey || e.ctrlKey;
-                    if (isMetaOrCtrl && e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
+                  autoComplete="off"
+                  spellCheck="false"
                 />
                 <button
                   onClick={handleSubmit}
@@ -352,7 +395,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ configuration, onS
                     border: 'none',
                     color: 'white',
                     cursor: userInput.trim() ? 'pointer' : 'default',
-                    fontSize: 14
+                    fontSize: 14,
+                    pointerEvents: 'auto',
+                    flexShrink: 0
                   }}
                 >
                   ↑
@@ -404,7 +449,8 @@ const TypingText: React.FC<TypingTextProps> = ({ text, configuration }) => {
       fontSize: 14,
       color: 'rgba(255,255,255,0.85)',
       textAlign: 'center',
-      lineHeight: 1.4
+      lineHeight: 1.4,
+      pointerEvents: 'none'
     }}>
       {displayedText}
     </p>
