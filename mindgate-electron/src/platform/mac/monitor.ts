@@ -121,19 +121,36 @@ end tell`;
 
       if (bid.includes('safari')) {
         script = `tell application id "${bundleID}"
-  if (count of windows) is 0 then return ""
-  return URL of current tab of front window
+  try
+    if (count of windows) is 0 then return ""
+    set tabURL to URL of current tab of front window
+    return tabURL
+  on error errMsg
+    log "Safari URL error: " & errMsg
+    return ""
+  end try
 end tell`;
       } else if (bid.includes('chrome') || bid.includes('brave') || bid.includes('edge')) {
         script = `tell application id "${bundleID}"
-  if (count of windows) is 0 then return ""
-  return URL of active tab of front window
+  try
+    if (count of windows) is 0 then return ""
+    set frontTab to active tab of front window
+    return URL of frontTab
+  on error errMsg
+    log "Chrome URL error: " & errMsg
+    return ""
+  end try
 end tell`;
       } else if (bid.includes('firefox')) {
         script = `tell application id "${bundleID}"
-  if (count of windows) is 0 then return ""
-  set windowTitle to name of front window
-  return windowTitle
+  try
+    if (count of windows) is 0 then return ""
+    set windowTitle to name of front window
+    return windowTitle
+  on error errMsg
+    log "Firefox URL error: " & errMsg
+    return ""
+  end try
 end tell`;
       } else {
         return null;

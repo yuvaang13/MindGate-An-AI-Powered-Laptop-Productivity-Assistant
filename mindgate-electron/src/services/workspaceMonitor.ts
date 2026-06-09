@@ -2,6 +2,85 @@ import type { ActiveWindowInfo, Configuration } from '../types.js';
 import type { DecisionEngine } from './decisionEngine.js';
 import type { SystemMonitor } from './platformWrapper.js';
 
+const DISTRACTING_DOMAINS: string[] = [
+  'youtube.com', 'youtu.be', 'youtube-nocookie.com',
+  'reddit.com',
+  'twitter.com', 'x.com',
+  'tiktok.com',
+  'instagram.com',
+  'twitch.tv',
+  'discord.com',
+  'netflix.com',
+  'facebook.com',
+  'fb.com',
+  'spotify.com',
+  'linkedin.com',
+  'pinterest.com',
+  'pinterest.ca',
+  'snapchat.com',
+  'whatsapp.com',
+  'telegram.org',
+  't.me',
+  'medium.com',
+  'buzzfeed.com',
+  'hackernews.com', 'news.ycombinator.com',
+  'producthunt.com',
+  'dribbble.com',
+  'behance.net',
+  'imgur.com',
+  'giphy.com',
+  '9gag.com',
+  'espn.com',
+  'bleacherreport.com',
+  'cnn.com',
+  'foxnews.com',
+  'msnbc.com',
+  'bbc.com', 'bbc.co.uk',
+  'amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.de', 'amazon.fr',
+  'ebay.com', 'ebay.co.uk',
+  'etsy.com',
+  'walmart.com',
+  'target.com',
+  'weather.com',
+  'crypto.com', 'coinbase.com', 'binance.com',
+  'reddit.com',
+  'fandom.com',
+  'pornhub.com', 'xvideos.com', 'xhamster.com',
+];
+
+const TITLE_DISTRACTION_PATTERNS: RegExp[] = [
+  /youtube|youtu\.be|watch\?v=/i,
+  /reddit|r\//i,
+  /twitter|x\.com|tweet/i,
+  /tiktok/i,
+  /instagram/i,
+  /twitch/i,
+  /netflix/i,
+  /facebook|fb\b/i,
+  /discord/i,
+  /spotify/i,
+  /linkedin/i,
+  /pinterest/i,
+  /snapchat/i,
+  /whatsapp/i,
+  /telegram/i,
+  /medium\.com/i,
+  /buzzfeed/i,
+  /amazon|shop|buy|cart/i,
+  /ebay/i,
+  /etsy/i,
+  /walmart|target/i,
+  /news|breaking/i,
+  /crypto|bitcoin|trading/i,
+  /streaming|watch|video/i,
+  /gaming|game|play/i,
+  /memes|funny|viral|trending/i,
+  /sports|espn|nfl|nba|mlb/i,
+  /entertainment|celebrity|gossip/i,
+  /fashion|beauty/i,
+  /weather|stocks|finance/i,
+];
+
 export class WorkspaceMonitor {
   private monitor: SystemMonitor;
   private configuration: Configuration;
@@ -90,16 +169,34 @@ export class WorkspaceMonitor {
     const bundleID = window.bundleID?.toLowerCase() || '';
     const exeName = window.exeName?.toLowerCase() || '';
 
-    if (this.configuration.settings.distractingApps.some(app =>
-      processName.includes(app.toLowerCase()) || bundleID.includes(app.toLowerCase()) || exeName.includes(app.toLowerCase())
-    )) {
+    // 1. Check against distracting apps list (process/bundle/exe name match)
+    if (this.configuration.settings.distractingApps.some(app => {
+      const needle = app.toLowerCase();
+      return processName.includes(needle) || bundleID.includes(needle) || exeName.includes(needle);
+    })) {
       console.log(`[Distraction] App matched: "${processName}" in distracting apps`);
       return true;
     }
 
-    if (this.isBrowser(window) && this.hasRestrictedContent(window)) {
-      console.log(`[Distraction] Website matched: "${processName}" has restricted content`);
-      return true;
+    // 2. If it's a browser, check for distracting websites
+    if (this.isBrowser(window)) {
+      // 2a. Domain-based blacklist (most reliable)
+      if (this.isDistractionDomain(window.browserURL || '')) {
+        console.log(`[Distraction] Domain matched: "${window.browserURL}"`);
+        return true;
+      }
+
+      // 2b. Regex-based title analysis
+      if (this.isTitleDistracting(window.windowTitle)) {
+        console.log(`[Distraction] Title matched pattern: "${window.windowTitle}"`);
+        return true;
+      }
+
+      // 2c. Keyword matching from config (fallback)
+      if (this.hasRestrictedKeyword(window)) {
+        console.log(`[Distraction] Keyword matched`);
+        return true;
+      }
     }
 
     return false;
@@ -116,28 +213,52 @@ export class WorkspaceMonitor {
     });
   }
 
-  private hasRestrictedContent(window: ActiveWindowInfo): boolean {
+  private isDistractionDomain(browserURL: string): boolean {
+    if (!browserURL) return false;
+
+    try {
+      const url = new URL(browserURL);
+      let hostname = url.hostname.toLowerCase();
+
+      hostname = hostname.replace(/^(www|m|mobile)\./, '');
+
+      const match = DISTRACTING_DOMAINS.some(domain => {
+        return hostname === domain || hostname.endsWith('.' + domain);
+      });
+
+      if (match) {
+        console.log(`[Distraction] Blacklisted domain: "${hostname}" from URL: "${browserURL}"`);
+      }
+
+      return match;
+    } catch {
+      return false;
+    }
+  }
+
+  private isTitleDistracting(windowTitle: string): boolean {
+    if (!windowTitle) return false;
+
+    const match = TITLE_DISTRACTION_PATTERNS.some(pattern => pattern.test(windowTitle));
+
+    if (match) {
+      console.log(`[Distraction] Title pattern matched: "${windowTitle}"`);
+    }
+
+    return match;
+  }
+
+  private hasRestrictedKeyword(window: ActiveWindowInfo): boolean {
     const windowTitle = window.windowTitle.toLowerCase();
     const browserURL = window.browserURL?.toLowerCase() || '';
 
-    console.log(`[Distraction] Checking content. Title: "${windowTitle}" URL: "${browserURL}"`);
-
     return this.configuration.settings.restrictedKeywords.some(kw => {
       const keyword = kw.toLowerCase();
-      if (windowTitle.includes(keyword)) {
-        console.log(`[Distraction] Title matched keyword: "${keyword}"`);
-        return true;
-      }
-      if (browserURL.includes(keyword)) {
-        console.log(`[Distraction] URL matched keyword: "${keyword}"`);
-        return true;
-      }
+      if (windowTitle.includes(keyword)) return true;
+      if (browserURL.includes(keyword)) return true;
       try {
         const hostname = new URL(browserURL).hostname;
-        if (hostname.includes(keyword)) {
-          console.log(`[Distraction] Hostname matched keyword: "${keyword}"`);
-          return true;
-        }
+        if (hostname.includes(keyword)) return true;
       } catch {}
       return false;
     });
