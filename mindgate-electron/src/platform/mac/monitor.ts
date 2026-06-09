@@ -91,27 +91,21 @@ end tell
       let script: string;
 
       if (bundleID.includes('safari')) {
-        script = `
-tell application id "${bundleID}"
+        script = `tell application id "${bundleID}"
   if (count of windows) is 0 then return ""
   return URL of current tab of front window
-end tell
-`;
+end tell`;
       } else if (bundleID.includes('chrome') || bundleID.includes('brave') || bundleID.includes('edge')) {
-        script = `
-tell application id "${bundleID}"
+        script = `tell application id "${bundleID}"
   if (count of windows) is 0 then return ""
   return URL of active tab of front window
-end tell
-`;
+end tell`;
       } else if (bundleID.includes('firefox')) {
-        script = `
-tell application id "${bundleID}"
+        script = `tell application id "${bundleID}"
   if (count of windows) is 0 then return ""
   set windowTitle to name of front window
   return windowTitle
-end tell
-`;
+end tell`;
       } else {
         return null;
       }
@@ -120,10 +114,6 @@ end tell
       const { stdout } = await execAsync(`osascript -e '${script}'`, { timeout: 3000 });
       const result = stdout.trim();
       console.log(`[MacMonitor] URL fetch result: "${result}"`);
-      
-      if (bundleID.includes('firefox')) {
-        return result || null;
-      }
       
       return result || null;
     } catch (error) {
