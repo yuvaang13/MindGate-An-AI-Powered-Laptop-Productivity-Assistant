@@ -63,15 +63,19 @@ Your first message to them should be a brief, firm question asking why they need
 
     this.chatHistory.push({ role: 'ai', content: cleanResponse, timestamp: Date.now() });
 
-    if (this.parseApproval(cleanResponse)) {
+    if (this.parseKeyword(cleanResponse, 'APPROVED')) {
       return { message: cleanResponse, isApproved: true };
+    }
+
+    if (this.parseKeyword(cleanResponse, 'DENIED')) {
+      return { message: cleanResponse, isApproved: false };
     }
 
     return { message: cleanResponse, isApproved: null };
   }
 
-  private parseApproval(response: string): boolean {
-    return response.toUpperCase().includes('APPROVED');
+  private parseKeyword(response: string, keyword: string): boolean {
+    return response.toUpperCase().includes(keyword);
   }
 
   resetChat(): void {
