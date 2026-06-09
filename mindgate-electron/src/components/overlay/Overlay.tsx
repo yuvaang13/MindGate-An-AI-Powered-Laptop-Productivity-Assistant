@@ -13,6 +13,7 @@ type OverlayState = 'chat' | 'loading' | 'approved' | 'denied' | 'takeover';
 
 export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configuration, onClose }) => {
   const [state, setState] = useState<OverlayState>('chat');
+  console.log('[Overlay] Render — visible:', visible, 'state:', state);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [countdownSeconds, setCountdownSeconds] = useState(configuration.settings.justificationCountdownDuration);

@@ -270,7 +270,9 @@ function setupEventHandlers() {
       }
     }
     
+    console.log('[Main] Calling showOverlay — overlayWindow exists:', !!overlayWindow);
     windowManager.showOverlay(activeWindow);
+    console.log('[Main] Sending show-overlay to renderer');
     overlayWindow?.webContents.send('show-overlay');
   };
 

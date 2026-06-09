@@ -6,19 +6,25 @@ let hideOverlayCb: (() => void) | null = null;
 let pendingShow = false;
 let pendingHide = false;
 
+console.log('[Preload] Module scope — registering IPC listeners');
+
 ipcRenderer.on('show-overlay', () => {
+  console.log('[Preload] show-overlay received, cb exists:', !!showOverlayCb, 'pending:', pendingShow);
   if (showOverlayCb) {
     showOverlayCb();
   } else {
     pendingShow = true;
+    console.log('[Preload] show-overlay buffered (pendingShow=true)');
   }
 });
 
 ipcRenderer.on('hide-overlay', () => {
+  console.log('[Preload] hide-overlay received, cb exists:', !!hideOverlayCb, 'pending:', pendingHide);
   if (hideOverlayCb) {
     hideOverlayCb();
   } else {
     pendingHide = true;
+    console.log('[Preload] hide-overlay buffered (pendingHide=true)');
   }
 });
 
@@ -41,9 +47,11 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   launchApp: (appName: string) => ipcRenderer.invoke('launch-app', appName),
 
   onShowOverlay: (callback: () => void) => {
+    console.log('[Preload] onShowOverlay called, pending:', pendingShow);
     showOverlayCb = callback;
     if (pendingShow) {
       pendingShow = false;
+      console.log('[Preload] Firing buffered show-overlay');
       callback();
     }
   },

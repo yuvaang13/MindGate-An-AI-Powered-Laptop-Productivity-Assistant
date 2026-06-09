@@ -249,11 +249,12 @@ export class WorkspaceMonitor {
   private configuration: Configuration;
   private decisionEngine: DecisionEngine | null = null;
   private lastCheckTime: number = 0;
-  private debounceInterval: number = 0.75;
-  private promptRepeatInterval: number = 20;
+  private debounceInterval: number = 0.3;
+  private promptRepeatInterval: number = 5;
   private lastPromptTime: number = 0;
   private activePromptIdentifier: string | null = null;
   private hasInitialCheckRun: boolean = false;
+  private lastActiveWindowIdentifier: string | null = null;
 
   constructor(configuration: Configuration, monitor: SystemMonitor) {
     this.configuration = configuration;
@@ -275,24 +276,31 @@ export class WorkspaceMonitor {
   async checkWorkspace(): Promise<boolean> {
     const now = Date.now() / 1000;
 
-    if (now - this.lastCheckTime < this.debounceInterval) {
-      return false;
-    }
-    this.lastCheckTime = now;
-
     const activeWindow = await this.monitor.getActiveWindow();
     if (!activeWindow) {
       console.log('No active window detected');
       return false;
     }
 
+    const identifier = this.getAppIdentifier(activeWindow);
+
+    // If active window changed, skip debounce and check immediately
+    if (identifier !== this.lastActiveWindowIdentifier) {
+      console.log('Active window changed:', this.lastActiveWindowIdentifier, '->', identifier);
+      this.lastActiveWindowIdentifier = identifier;
+      this.lastCheckTime = 0;
+    }
+
+    if (now - this.lastCheckTime < this.debounceInterval) {
+      return false;
+    }
+    this.lastCheckTime = now;
+
     console.log('Active window:', activeWindow.processName, '| Title:', activeWindow.windowTitle, '| BundleID:', activeWindow.bundleID, '| URL:', activeWindow.browserURL);
 
     if (!this.hasInitialCheckRun) {
       this.hasInitialCheckRun = true;
     }
-
-    const identifier = this.getAppIdentifier(activeWindow);
 
     const isDistracting = this.isDistracting(activeWindow);
     console.log('Is distracting?', isDistracting);
@@ -430,7 +438,7 @@ export class WorkspaceMonitor {
   onDistractionDetected?: (window: ActiveWindowInfo) => void;
   onClearPrompt?: () => void;
 
-  startMonitoring(intervalMs: number = 1000): void {
+  startMonitoring(intervalMs: number = 500): void {
     console.log('Workspace monitoring started');
     this.checkWorkspace().catch(err => {
       console.error('Initial workspace check failed:', err);
