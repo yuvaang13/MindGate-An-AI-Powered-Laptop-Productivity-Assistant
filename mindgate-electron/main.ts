@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, Tray, screen, Menu, nativeImage, systemPreferences } from 'electron';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { writeFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { ConfigurationService } from './src/services/configurationService.js';
 import { DecisionEngine } from './src/services/decisionEngine.js';
 import { WorkspaceMonitor } from './src/services/workspaceMonitor.js';
@@ -283,17 +285,14 @@ function setupEventHandlers() {
 }
 
 function createTrayIcon(): Electron.NativeImage {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-  <circle cx="22" cy="17" r="11" stroke="white" stroke-width="1.2" fill="none"/>
-  <path d="M15 14 Q18.5 11 22 14 Q25.5 11 29 14" stroke="white" stroke-width="0.8" fill="none" opacity="0.85"/>
-  <path d="M15 16.5 Q18.5 13.5 22 16.5 Q25.5 13.5 29 16.5" stroke="white" stroke-width="0.8" fill="none" opacity="0.85"/>
-  <path d="M15 19 Q18.5 16 22 19 Q25.5 16 29 19" stroke="white" stroke-width="0.8" fill="none" opacity="0.85"/>
-  <path d="M17.5 12 Q19.5 9.5 22 12 Q24.5 9.5 26.5 12" stroke="white" stroke-width="0.6" fill="none" opacity="0.55"/>
-  <ellipse cx="18" cy="13" rx="3.5" ry="2.5" fill="white" opacity="0.12"/>
-  <path d="M10.5 28 Q22 32 33.5 28" stroke="white" stroke-width="1" fill="none"/>
-</svg>`;
-  const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-  const img = nativeImage.createFromDataURL(dataUrl);
+  const iconPath = join(mkdtempSync(join(tmpdir(), 'mindgate-icon-')), 'icon.svg');
+  writeFileSync(iconPath, `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
+  <circle cx="11" cy="9" r="6.5" fill="none" stroke="#000" stroke-width="1.1"/>
+  <path d="M7 8 Q9.5 6 11 8 Q12.5 6 15 8" fill="none" stroke="#000" stroke-width="0.7"/>
+  <path d="M7 9.5 Q9.5 7.5 11 9.5 Q12.5 7.5 15 9.5" fill="none" stroke="#000" stroke-width="0.7"/>
+  <path d="M6.5 15 Q11 17 15.5 15" fill="none" stroke="#000" stroke-width="0.7"/>
+</svg>`);
+  const img = nativeImage.createFromPath(iconPath);
   if (process.platform === 'darwin') {
     img.setTemplateImage(true);
   }
