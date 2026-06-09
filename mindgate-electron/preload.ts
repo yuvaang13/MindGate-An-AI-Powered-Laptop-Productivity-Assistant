@@ -1,6 +1,27 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { Configuration } from './src/types.js';
 
+let showOverlayCb: (() => void) | null = null;
+let hideOverlayCb: (() => void) | null = null;
+let pendingShow = false;
+let pendingHide = false;
+
+ipcRenderer.on('show-overlay', () => {
+  if (showOverlayCb) {
+    showOverlayCb();
+  } else {
+    pendingShow = true;
+  }
+});
+
+ipcRenderer.on('hide-overlay', () => {
+  if (hideOverlayCb) {
+    hideOverlayCb();
+  } else {
+    pendingHide = true;
+  }
+});
+
 contextBridge.exposeInMainWorld('mindgateAPI', {
   checkOllamaConnection: () => ipcRenderer.invoke('check-ollama-connection'),
   generateFirstMessage: () => ipcRenderer.invoke('generate-first-message'),
@@ -20,11 +41,19 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   launchApp: (appName: string) => ipcRenderer.invoke('launch-app', appName),
 
   onShowOverlay: (callback: () => void) => {
-    ipcRenderer.on('show-overlay', callback);
+    showOverlayCb = callback;
+    if (pendingShow) {
+      pendingShow = false;
+      callback();
+    }
   },
 
   onHideOverlay: (callback: () => void) => {
-    ipcRenderer.on('hide-overlay', callback);
+    hideOverlayCb = callback;
+    if (pendingHide) {
+      pendingHide = false;
+      callback();
+    }
   },
 
   onOllamaStatusChanged: (callback: (connected: boolean) => void) => {
