@@ -20,6 +20,7 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
   const [remainingAccessTime, setRemainingAccessTime] = useState<number | null>(null);
   const [aiResponse, setAiResponse] = useState('');
   const [isInputDisabled, setIsInputDisabled] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -40,10 +41,12 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
       setAiResponse('');
       setRemainingAccessTime(null);
       setIsInputDisabled(false);
+      setAiReady(false);
       setCountdownSeconds(configuration.settings.justificationCountdownDuration);
       initChat().catch(e => {
         console.error('[Overlay] initChat failed:', e);
         setMessages([{ role: 'ai', content: 'Error starting chat. Please restart MindGate.', timestamp: Date.now() }]);
+        setAiReady(true);
       });
     }
   }, [visible]);
@@ -52,24 +55,32 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
     window.mindgateAPI.resetChat();
     const firstMessage = await window.mindgateAPI.generateFirstMessage();
     setMessages([{ role: 'ai', content: firstMessage, timestamp: Date.now() }]);
+    setAiReady(true);
   };
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (state === 'chat') {
-        if (countdownSeconds > 0) {
-          setCountdownSeconds(s => s - 1);
-        } else if (countdownSeconds === 0) {
-          handleTimeout();
-        }
-      }
+    if (state === 'chat' && aiReady) {
+      const timer = setInterval(() => {
+        setCountdownSeconds(s => s - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [state, aiReady]);
 
-      if (state === 'approved' && remainingAccessTime !== null) {
+  useEffect(() => {
+    if (state === 'chat' && aiReady && countdownSeconds <= 0) {
+      handleTimeout();
+    }
+  }, [countdownSeconds, state, aiReady]);
+
+  useEffect(() => {
+    if (state === 'approved' && remainingAccessTime !== null) {
+      const timer = setInterval(() => {
         setRemainingAccessTime(t => t !== null ? Math.max(0, t - 1) : null);
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [countdownSeconds, state, remainingAccessTime]);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [state, remainingAccessTime]);
 
   const handleTimeout = async () => {
     setIsInputDisabled(true);
@@ -143,12 +154,12 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
         minHeight: 0,
       }}>
         {messages && messages.length > 0 ? messages.map((msg, i) => (
-          <div key={i} className={msg?.role === 'user' ? 'glass-bubble-user' : 'glass-bubble-ai'}>
+          <div key={i} className={msg?.role === 'user' ? 'glass-bubble-user' : 'glass-bubble-ai-light'}>
             {msg?.content ?? ''}
           </div>
         )) : (
-          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
-            Loading...
+          <div style={{ color: 'rgba(0,0,0,0.4)', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
+            AI is thinking...
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -191,7 +202,7 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
         {aiResponse}
       </p>
       {remainingAccessTime !== null && (
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: 0 }}>
+        <p style={{ fontSize: '13px', color: 'rgba(0,0,0,0.5)', textAlign: 'center', margin: 0 }}>
           Time remaining: {Math.floor(remainingAccessTime / 60)}m {remainingAccessTime % 60}s
         </p>
       )}
@@ -200,7 +211,7 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
 
   const renderDenied = () => (
     <div style={{ textAlign: 'center', padding: '20px' }}>
-      <p style={{ fontSize: '16px', fontWeight: '600', color: '#fff', margin: 0 }}>{aiResponse}</p>
+      <p style={{ fontSize: '16px', fontWeight: '600', color: 'var(--glass-text)', margin: 0 }}>{aiResponse}</p>
     </div>
   );
 
@@ -228,7 +239,7 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
 
   return (
     <div
-      className="glass-panel-dark"
+      className="glass-panel"
       style={{
         position: 'fixed',
         display: 'flex',
@@ -236,8 +247,8 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
         gap: '10px',
         top: 0,
         left: 0,
-        width: '380px',
-        height: '380px',
+        width: '340px',
+        height: '340px',
         padding: '20px',
         pointerEvents: 'auto',
         zIndex: 2147483647,
@@ -251,7 +262,7 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className={`glass-dot ${state === 'chat' || state === 'loading' ? 'glass-dot-active' : ''}`} />
-          <span style={{ fontSize: '15px', fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>
+          <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--glass-text)' }}>
             MindGate
           </span>
         </div>

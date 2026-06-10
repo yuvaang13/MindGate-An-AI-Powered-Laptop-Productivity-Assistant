@@ -13,9 +13,13 @@ export class OllamaService {
 
   async checkConnection(): Promise<boolean> {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(`${this.baseURL.replace('/api/generate', '/api/tags')}`, {
-        method: 'GET'
+        method: 'GET',
+        signal: controller.signal
       });
+      clearTimeout(timeout);
       const isSuccess = response.ok;
       if (isSuccess) {
         this.retryCount = 0;
@@ -99,11 +103,14 @@ export class OllamaService {
     
     for (let attempt = 0; attempt < _maxRetries; attempt++) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
         const response = await fetch(this.baseURL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
+          signal: controller.signal,
           body: JSON.stringify({
             model: this.model,
             prompt,
@@ -114,6 +121,7 @@ export class OllamaService {
             }
           })
         });
+        clearTimeout(timeout);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

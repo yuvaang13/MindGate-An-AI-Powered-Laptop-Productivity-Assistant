@@ -59,24 +59,20 @@ export class WindowManager {
     return this.overlayWindow;
   }
 
-  showOverlay(targetWindow?: ActiveWindowInfo) {
-    const window = targetWindow ?? this.targetApp;
+  showOverlay(_targetWindow?: ActiveWindowInfo) {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { bounds } = primaryDisplay;
+    const width = this.configuration.theme.dimensions.overlayWidth ?? 340;
+    const height = this.configuration.theme.dimensions.overlayHeight ?? 340;
     const xOffset = this.configuration.theme.dimensions.overlayXOffset ?? 24;
     const yOffset = this.configuration.theme.dimensions.overlayYOffset ?? 24;
-    
-    if (window && window.frame && window.frame.width > 0) {
-      this.overlayWindow?.setPosition(
-        Math.round((window.frame.x ?? 0) + xOffset),
-        Math.round((window.frame.y ?? 0) + yOffset)
-      );
-    } else {
-      const primaryDisplay = screen.getPrimaryDisplay();
-      this.overlayWindow?.setPosition(
-        Math.round(primaryDisplay.bounds.x + xOffset),
-        Math.round(primaryDisplay.bounds.y + yOffset)
-      );
-    }
 
+    this.overlayWindow?.setPosition(
+      Math.round(bounds.x + bounds.width - width - xOffset),
+      Math.round(bounds.y + yOffset)
+    );
+
+    this.overlayWindow?.setSize(width, height);
     this.overlayWindow?.show();
     this.overlayWindow?.focus();
   }
