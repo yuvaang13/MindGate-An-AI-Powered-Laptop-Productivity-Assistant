@@ -10,6 +10,13 @@ import { WindowManager } from './src/services/windowManager.js';
 import { SystemMonitor } from './src/services/platformWrapper.js';
 import type { ActiveWindowInfo, Configuration } from './src/types.js';
 
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (err: NodeJS.ErrnoException) => {
+    if (err?.code === 'EIO') return;
+    console.error('Stream error:', err);
+  });
+}
+
 function patchConsole() {
   const c = console as unknown as Record<string, (...args: unknown[]) => void>;
   for (const method of ['log', 'error', 'warn', 'info']) {
@@ -53,8 +60,12 @@ async function requestAccessibilityPermissionsIfNeeded(): Promise<boolean> {
     return systemPreferences.isTrustedAccessibilityClient(false);
   }
   
+  try {
+    systemPreferences.isTrustedAccessibilityClient(true);
+  } catch (e) {
+    console.error('Failed to request accessibility permission:', e);
+  }
   hasRequestedPermissions = true;
-  systemPreferences.isTrustedAccessibilityClient(true);
   
   const granted = systemPreferences.isTrustedAccessibilityClient(false);
   if (granted) {
@@ -107,7 +118,7 @@ async function createWindows(): Promise<void> {
     skipTaskbar: true,
     resizable: false,
     movable: false,
-    hasShadow: false,
+    hasShadow: true,
     focusable: true,
     acceptFirstMouse: true,
     minimizable: false,
@@ -129,6 +140,10 @@ async function createWindows(): Promise<void> {
     });
   });
 
+  const timeoutPromise = new Promise<void>((_, reject) => {
+    setTimeout(() => reject(new Error('Overlay window load timed out after 15s')), 15000);
+  });
+
   console.log('Loading overlay window with VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
   if (process.env.VITE_DEV_SERVER_URL) {
     overlayWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -136,7 +151,11 @@ async function createWindows(): Promise<void> {
     overlayWindow.loadFile(join(__dirname, 'dist/index.html'));
   }
 
-  await loadPromise;
+  try {
+    await Promise.race([loadPromise, timeoutPromise]);
+  } catch (e) {
+    console.error('[Main] Overlay window load failed:', e);
+  }
 }
 
 function setupIPC() {
@@ -276,35 +295,45 @@ function setupIPC() {
         tray?.setTitle('⚠️');
         tray?.setToolTip('MindGate - Ollama not connected');
       }
-      overlayWindow?.webContents.send('ollama-status-changed', isOllamaConnected);
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send('ollama-status-changed', isOllamaConnected);
+      }
     }
   }, 30000);
 }
 
 function setupEventHandlers() {
   workspaceMonitor.onDistractionDetected = async (activeWindow: ActiveWindowInfo) => {
-    console.log('Distraction detected:', activeWindow.processName, activeWindow.windowTitle);
-    decisionEngine.setCurrentApp(activeWindow);
-    windowManager.setTargetWindow(activeWindow);
-    
-    if (!hasRequestedPermissions) {
-      const hasPermission = await requestAccessibilityPermissionsIfNeeded();
-      hasRequestedPermissions = true;
-      if (!hasPermission) {
-        console.log('Accessibility permission not granted — proceeding without AX API');
+    try {
+      console.log('Distraction detected:', activeWindow.processName, activeWindow.windowTitle);
+      decisionEngine.setCurrentApp(activeWindow);
+      windowManager.setTargetWindow(activeWindow);
+      
+      if (!hasRequestedPermissions) {
+        const hasPermission = await requestAccessibilityPermissionsIfNeeded();
+        hasRequestedPermissions = true;
+        if (!hasPermission) {
+          console.log('Accessibility permission not granted — proceeding without AX API');
+        }
       }
+      
+      console.log('[Main] Calling showOverlay — overlayWindow exists:', !!overlayWindow);
+      windowManager.showOverlay(activeWindow);
+      console.log('[Main] Sending show-overlay to renderer');
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send('show-overlay');
+      }
+    } catch (e) {
+      console.error('[Main] Error in onDistractionDetected:', e);
     }
-    
-    console.log('[Main] Calling showOverlay — overlayWindow exists:', !!overlayWindow);
-    windowManager.showOverlay(activeWindow);
-    console.log('[Main] Sending show-overlay to renderer');
-    overlayWindow?.webContents.send('show-overlay');
   };
 
   workspaceMonitor.onClearPrompt = () => {
     console.log('Clear prompt triggered');
     windowManager.hideOverlay();
-    overlayWindow?.webContents.send('hide-overlay');
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('hide-overlay');
+    }
   };
 
   decisionEngine.onAccessExpired = () => {

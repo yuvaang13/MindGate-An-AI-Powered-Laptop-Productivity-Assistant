@@ -35,7 +35,7 @@ export class ConfigurationService {
   }
 
   private mergeWithDefaults(loaded: Partial<Configuration>, defaults: Configuration): Configuration {
-    return {
+    const merged: Configuration = {
       settings: {
         ...defaults.settings,
         ...loaded.settings
@@ -46,6 +46,35 @@ export class ConfigurationService {
         dimensions: { ...defaults.theme.dimensions, ...loaded.theme?.dimensions }
       }
     };
+    this.validateConfig(merged, defaults);
+    return merged;
+  }
+
+  private validateConfig(config: Configuration, defaults: Configuration): void {
+    if (!Array.isArray(config.settings.distractingApps)) {
+      config.settings.distractingApps = defaults.settings.distractingApps;
+    }
+    if (!Array.isArray(config.settings.restrictedKeywords)) {
+      config.settings.restrictedKeywords = defaults.settings.restrictedKeywords;
+    }
+    if (!Array.isArray(config.settings.monitoredBrowsers)) {
+      config.settings.monitoredBrowsers = defaults.settings.monitoredBrowsers;
+    }
+    if (typeof config.settings.justificationCountdownDuration !== 'number' || config.settings.justificationCountdownDuration <= 0) {
+      config.settings.justificationCountdownDuration = defaults.settings.justificationCountdownDuration;
+    }
+    if (typeof config.theme.dimensions.overlayWidth !== 'number' || config.theme.dimensions.overlayWidth <= 0) {
+      config.theme.dimensions.overlayWidth = defaults.theme.dimensions.overlayWidth;
+    }
+    if (typeof config.theme.dimensions.overlayHeight !== 'number' || config.theme.dimensions.overlayHeight <= 0) {
+      config.theme.dimensions.overlayHeight = defaults.theme.dimensions.overlayHeight;
+    }
+    if (typeof config.theme.dimensions.overlayXOffset !== 'number') {
+      config.theme.dimensions.overlayXOffset = defaults.theme.dimensions.overlayXOffset;
+    }
+    if (typeof config.theme.dimensions.overlayYOffset !== 'number') {
+      config.theme.dimensions.overlayYOffset = defaults.theme.dimensions.overlayYOffset;
+    }
   }
 
   private getDefaultConfiguration(): Configuration {

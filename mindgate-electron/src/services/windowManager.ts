@@ -44,7 +44,7 @@ export class WindowManager {
       skipTaskbar: true,
       resizable: false,
       movable: false,
-      hasShadow: false,
+      hasShadow: true,
       focusable: true,
       acceptFirstMouse: true,
       minimizable: false,
