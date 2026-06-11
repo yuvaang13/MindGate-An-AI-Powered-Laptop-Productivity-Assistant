@@ -29,13 +29,13 @@
   background: #ffffff;
   background: linear-gradient(
     180deg,
-    #ffffff 0%,
-    rgba(255, 255, 255, 0.97) 50%,
-    rgba(255, 255, 255, 0.95) 100%
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.98) 50%,
+    rgba(248, 248, 250, 0.95) 100%
   );
-  border: 1.5px solid rgba(60, 60, 67, 0.25);
+  border: 1px solid rgba(60, 60, 67, 0.12);
   border-radius: var(--glass-radius-xl);
-  box-shadow: var(--glass-shadow-heavy);
+  box-shadow: var(--glass-shadow-heavy), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .glass-panel-dark {
