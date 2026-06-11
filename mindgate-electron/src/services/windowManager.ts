@@ -38,7 +38,8 @@ export class WindowManager {
       y: Math.round(bounds.y + yOffset),
       width: this.configuration.theme.dimensions.overlayWidth ?? 380,
       height: this.configuration.theme.dimensions.overlayHeight ?? 380,
-      transparent: true,
+      transparent: false,
+      backgroundColor: '#ffffff',
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
@@ -65,23 +66,28 @@ export class WindowManager {
     const height = this.configuration.theme.dimensions.overlayHeight ?? 340;
     const xOffset = this.configuration.theme.dimensions.overlayXOffset ?? 24;
     const yOffset = this.configuration.theme.dimensions.overlayYOffset ?? 24;
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const viewBounds = primaryDisplay.bounds;
 
+    let x: number, y: number;
     if (window?.frame && window.frame.width > 0) {
-      const x = Math.round((window.frame.x ?? 0) + xOffset);
-      const y = Math.round((window.frame.y ?? 0) + yOffset);
+      x = Math.round((window.frame.x ?? 0) + xOffset);
+      y = Math.round((window.frame.y ?? 0) + yOffset);
       console.log(`[WindowManager] Positioning overlay at distraction window (${x},${y}) size ${width}x${height}`);
-      this.overlayWindow?.setPosition(x, y);
     } else {
-      const primaryDisplay = screen.getPrimaryDisplay();
-      const x = Math.round(primaryDisplay.bounds.x + (primaryDisplay.bounds.width - width) / 2);
-      const y = Math.round(primaryDisplay.bounds.y + (primaryDisplay.bounds.height - height) / 2);
+      x = Math.round(viewBounds.x + (viewBounds.width - width) / 2);
+      y = Math.round(viewBounds.y + (viewBounds.height - height) / 2);
       console.log(`[WindowManager] Positioning overlay centered (${x},${y}) size ${width}x${height}`);
-      this.overlayWindow?.setPosition(x, y);
     }
 
+    x = Math.max(viewBounds.x, Math.min(x, viewBounds.x + viewBounds.width - width));
+    y = Math.max(viewBounds.y, Math.min(y, viewBounds.y + viewBounds.height - height));
+
+    this.overlayWindow?.setPosition(x, y);
     this.overlayWindow?.setSize(width, height);
     this.overlayWindow?.show();
     this.overlayWindow?.focus();
+    this.overlayWindow?.moveTop();
     console.log('[WindowManager] Overlay shown, visible:', this.overlayWindow?.isVisible(), 'position:', this.overlayWindow?.getPosition());
   }
 
