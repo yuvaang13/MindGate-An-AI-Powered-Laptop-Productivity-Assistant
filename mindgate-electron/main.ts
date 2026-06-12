@@ -235,6 +235,10 @@ function openSettingsWindow() {
 
 function setupIPC() {
   ipcMain.handle('check-ollama-connection', async () => {
+    if (!decisionEngine) {
+      console.error('[Main] check-ollama-connection called before decisionEngine initialized');
+      return false;
+    }
     const connected = await decisionEngine.checkOllamaConnection();
     if (connected) {
       tray?.setTitle('');
@@ -255,6 +259,9 @@ function setupIPC() {
   });
 
   ipcMain.handle('generate-first-message', async () => {
+    if (!decisionEngine) {
+      return 'MindGate is initializing. Please wait...';
+    }
     const connected = await decisionEngine.checkOllamaConnection();
     if (!connected) {
       return 'MindGate AI is not connected. Please start Ollama.';
@@ -263,6 +270,9 @@ function setupIPC() {
   });
 
   ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
+    if (!decisionEngine) {
+      return { message: 'MindGate is initializing. Please wait...', isApproved: false };
+    }
     const connected = await decisionEngine.checkOllamaConnection();
     if (!connected) {
       return { message: 'Ollama service unavailable. Access denied.', isApproved: false };
@@ -271,10 +281,17 @@ function setupIPC() {
   });
 
   ipcMain.handle('reset-chat', async () => {
+    if (!decisionEngine) return;
     decisionEngine.resetChat();
   });
 
   ipcMain.handle('evaluate-request', async (_event, userInput: string) => {
+    if (!decisionEngine) {
+      return {
+        isApproved: false,
+        message: 'MindGate is initializing. Please wait...',
+      };
+    }
     const connected = await decisionEngine.checkOllamaConnection();
     if (!connected) {
       return {
@@ -286,24 +303,32 @@ function setupIPC() {
   });
 
   ipcMain.handle('grant-access', (_event, durationSeconds: number) => {
+    if (!decisionEngine) return;
     if (durationSeconds && durationSeconds > 0) {
       decisionEngine.grantAccess(durationSeconds);
     }
   });
 
   ipcMain.handle('get-available-models', async () => {
+    if (!decisionEngine) return [];
     return await decisionEngine.getAvailableModels();
   });
 
   ipcMain.handle('get-configuration', () => {
+    if (!configurationService) {
+      console.error('[Main] get-configuration called before configurationService initialized');
+      throw new Error('Configuration service not initialized');
+    }
     return configurationService.getConfiguration();
   });
 
   ipcMain.handle('hide-overlay', () => {
+    if (!windowManager) return;
     windowManager.hideOverlay();
   });
 
   ipcMain.handle('close-distraction', async () => {
+    if (!windowManager) return;
     await windowManager.closeDistraction();
   });
 
@@ -313,6 +338,10 @@ function setupIPC() {
   });
 
   ipcMain.handle('update-settings', (_event, settings: Partial<Configuration['settings']>) => {
+    if (!configurationService || !decisionEngine || !workspaceMonitor || !windowManager) {
+      console.error('[Main] update-settings called before services initialized');
+      return false;
+    }
     configurationService.updateSettings(settings);
     decisionEngine.updateConfiguration(configurationService.getConfiguration());
     workspaceMonitor.updateConfiguration(configurationService.getConfiguration());
@@ -321,6 +350,7 @@ function setupIPC() {
   });
 
   ipcMain.handle('get-remaining-access-time', () => {
+    if (!decisionEngine) return 0;
     return decisionEngine.getRemainingTime();
   });
 
