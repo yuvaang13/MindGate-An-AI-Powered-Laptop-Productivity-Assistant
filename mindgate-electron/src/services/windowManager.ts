@@ -1,14 +1,17 @@
 import { BrowserWindow, screen } from 'electron';
 import type { Configuration, ActiveWindowInfo } from '../types.js';
+import type { SystemMonitor } from './platformWrapper.js';
 import { getPreloadPath } from '../utils/appPaths.js';
 
 export class WindowManager {
   private overlayWindow: BrowserWindow | null = null;
   private configuration: Configuration;
   private targetApp: ActiveWindowInfo | null = null;
+  private systemMonitor: SystemMonitor;
 
-  constructor(configuration: Configuration) {
+  constructor(configuration: Configuration, systemMonitor: SystemMonitor) {
     this.configuration = configuration;
+    this.systemMonitor = systemMonitor;
   }
 
   setOverlayWindow(window: BrowserWindow) {
@@ -99,6 +102,12 @@ export class WindowManager {
         .catch(() => {});
     }
     this.overlayWindow?.hide();
+  }
+
+  async closeDistraction(): Promise<void> {
+    await this.systemMonitor.closeBrowserTab();
+    await this.systemMonitor.hideApplication();
+    this.hideOverlay();
   }
 
   updateConfiguration(config: Configuration) {

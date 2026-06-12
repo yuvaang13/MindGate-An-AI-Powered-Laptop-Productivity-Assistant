@@ -154,55 +154,47 @@ end tell`;
     };
   }
 
-  async getActiveBrowserURL(identifier: string): Promise<string | null> {
-    if (!identifier) return null;
-
+  async getActiveBrowserURL(_identifier: string): Promise<string | null> {
     try {
-      const id = identifier.toLowerCase();
-      const safeId = escapeAppleScriptString(identifier);
-      const isBundleID = id.includes('.');
-      const tellPrefix = isBundleID ? 'application id' : 'application';
-      let script: string;
-
-      if (id.includes('safari')) {
-        script = `tell ${tellPrefix} "${safeId}"
+      const script = `tell application "System Events"
+  set frontApp to first application process whose frontmost is true
   try
-    if (count of windows) is 0 then return ""
-    set tabURL to URL of current tab of front window
-    return tabURL
+    set docURL to value of attribute "AXDocument" of window 1 of frontApp
+    return docURL
   on error
     return ""
   end try
 end tell`;
-      } else if (id.includes('chrome') || id.includes('brave') || id.includes('edge')) {
-        script = `tell ${tellPrefix} "${safeId}"
-  try
-    if (count of windows) is 0 then return ""
-    set frontTab to active tab of front window
-    return URL of frontTab
-  on error
-    return ""
-  end try
-end tell`;
-      } else if (id.includes('firefox')) {
-        script = `tell ${tellPrefix} "${safeId}"
-  try
-    if (count of windows) is 0 then return ""
-    set windowTitle to name of front window
-    return windowTitle
-  on error
-    return ""
-  end try
-end tell`;
-      } else {
-        return null;
-      }
-
       const result = await runAppleScript(script, 3000);
       return result || null;
     } catch (error) {
       console.error('[MacMonitor] Failed to get browser URL:', error);
       return null;
+    }
+  }
+
+  async closeBrowserTab(): Promise<boolean> {
+    try {
+      await runAppleScript('tell application "System Events" to keystroke "w" using command down', 2000);
+      return true;
+    } catch (error) {
+      console.error('[MacMonitor] Failed to close browser tab:', error);
+      return false;
+    }
+  }
+
+  async hideApplication(): Promise<boolean> {
+    try {
+      const script = `tell application "System Events"
+  try
+    set visible of (first application process whose frontmost is true) to false
+  end try
+end tell`;
+      await runAppleScript(script, 2000);
+      return true;
+    } catch (error) {
+      console.error('[MacMonitor] Failed to hide application:', error);
+      return false;
     }
   }
 

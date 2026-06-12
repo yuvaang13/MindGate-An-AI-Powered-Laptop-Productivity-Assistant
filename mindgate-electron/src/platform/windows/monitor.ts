@@ -101,6 +101,40 @@ if ($process) {
     }
   }
 
+  async closeBrowserTab(): Promise<boolean> {
+    try {
+      await runPowerShell(`
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.SendKeys]::SendWait("^w")
+`, 3000);
+      return true;
+    } catch (error) {
+      console.error('Failed to close browser tab:', error);
+      return false;
+    }
+  }
+
+  async hideApplication(): Promise<boolean> {
+    try {
+      await runPowerShell(`
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+  [DllImport("user32.dll")]
+  public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+"@
+$hwnd = [Win32]::GetForegroundWindow()
+[Win32]::ShowWindow($hwnd, 6) | Out-Null
+`, 3000);
+      return true;
+    } catch (error) {
+      console.error('Failed to hide application:', error);
+      return false;
+    }
+  }
+
   async getActiveBrowserURL(exeName: string): Promise<string | null> {
     if (!exeName) return null;
 

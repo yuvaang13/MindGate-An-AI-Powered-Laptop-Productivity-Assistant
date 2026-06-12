@@ -148,6 +148,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   const handleTimeout = async () => {
     setIsInputDisabled(true);
     setMessages((prev) => [...prev, { role: 'ai', content: "Time's up! Access denied.", timestamp: Date.now() }]);
+    await window.mindgateAPI.closeDistraction();
     setTimeout(() => {
       setState('takeover');
     }, 1000);
@@ -180,6 +181,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
       } else if (result.isApproved === false) {
         setAiResponse('Access denied. Stay focused on your work.');
         setState('denied');
+        await window.mindgateAPI.closeDistraction();
         setTimeout(() => setState('takeover'), 1500);
       } else {
         setState('chat');

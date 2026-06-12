@@ -33,6 +33,30 @@ export class LinuxMonitor {
     }
   }
 
+  async closeBrowserTab(): Promise<boolean> {
+    try {
+      await execAsync('xdotool key ctrl+w', { timeout: 2000 });
+      return true;
+    } catch (error) {
+      console.error('Failed to close browser tab on Linux:', error);
+      return false;
+    }
+  }
+
+  async hideApplication(): Promise<boolean> {
+    try {
+      const { stdout } = await execAsync('xdotool getwindowfocus getactivewindow', { timeout: 2000 });
+      const winId = stdout.trim();
+      if (winId) {
+        await execAsync(`xdotool windowminimize ${winId}`, { timeout: 2000 });
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to hide application on Linux:', error);
+      return false;
+    }
+  }
+
   private async getWindowProcess(): Promise<string> {
     try {
       const { stdout } = await execAsync('xdotool getwindowfocus getwindowpid 2>/dev/null', { timeout: 2000 });

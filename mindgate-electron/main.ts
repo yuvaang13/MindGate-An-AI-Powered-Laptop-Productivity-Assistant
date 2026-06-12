@@ -113,7 +113,7 @@ async function initialize() {
   await systemMonitor.initialize();
 
   decisionEngine = new DecisionEngine(configurationService.getConfiguration());
-  windowManager = new WindowManager(configurationService.getConfiguration());
+  windowManager = new WindowManager(configurationService.getConfiguration(), systemMonitor);
 
   workspaceMonitor = new WorkspaceMonitor(
     configurationService.getConfiguration(),
@@ -301,6 +301,10 @@ function setupIPC() {
 
   ipcMain.handle('hide-overlay', () => {
     windowManager.hideOverlay();
+  });
+
+  ipcMain.handle('close-distraction', async () => {
+    await windowManager.closeDistraction();
   });
 
   ipcMain.handle('show-settings', async () => {
