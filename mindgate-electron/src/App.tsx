@@ -7,6 +7,7 @@ declare global {
   interface Window {
     __showOverlay?: () => void;
     __hideOverlay?: () => void;
+    __resetOverlay?: () => void;
   }
 }
 
@@ -86,15 +87,33 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const pendingShowRef = useRef(false);
+
   useEffect(() => {
     console.log('[App] Registering globals');
 
     window.__showOverlay = () => {
-      console.log('[App] __showOverlay called');
-      overlayRef.current?.resetChat();
+      try {
+        if (overlayRef.current) {
+          console.log('[App] __showOverlay calling resetChat');
+          overlayRef.current.resetChat();
+        } else {
+          console.log('[App] __showOverlay — overlayRef not ready, queuing');
+          pendingShowRef.current = true;
+        }
+      } catch (e) {
+        console.error('[App] __showOverlay error:', e);
+      }
     };
     window.__hideOverlay = () => {
       console.log('[App] __hideOverlay called');
+    };
+    window.__resetOverlay = () => {
+      try {
+        overlayRef.current?.resetChat();
+      } catch (e) {
+        console.error('[App] __resetOverlay error:', e);
+      }
     };
 
     try {
@@ -109,8 +128,17 @@ const App: React.FC = () => {
     return () => {
       delete window.__showOverlay;
       delete window.__hideOverlay;
+      delete window.__resetOverlay;
     };
   }, []);
+
+  useEffect(() => {
+    if (pendingShowRef.current && overlayRef.current) {
+      console.log('[App] overlayRef now available, flushing pending show');
+      pendingShowRef.current = false;
+      overlayRef.current.resetChat();
+    }
+  });
 
   const handleClose = () => {
     window.mindgateAPI.hideOverlay();

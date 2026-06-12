@@ -54,7 +54,17 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
   const initChat = async () => {
     console.log('[Overlay] initChat — starting');
-    window.mindgateAPI.resetChat();
+    if (!window.mindgateAPI) {
+      console.warn('[Overlay] mindgateAPI not available — using fallback');
+      setMessages([{ role: 'ai', content: "MindGate bridge not initialized. Please restart the app.", timestamp: Date.now() }]);
+      setAiReady(true);
+      return;
+    }
+    try {
+      window.mindgateAPI.resetChat();
+    } catch (e) {
+      console.warn('[Overlay] resetChat failed:', e);
+    }
     console.log('[Overlay] initChat — calling generateFirstMessage');
     let firstMessage = '';
     try {

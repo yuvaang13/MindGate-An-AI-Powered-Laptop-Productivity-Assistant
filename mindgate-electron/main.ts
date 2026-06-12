@@ -11,6 +11,7 @@ import { SystemMonitor } from './src/services/platformWrapper.js';
 import type { ActiveWindowInfo, Configuration } from './src/types.js';
 
 const logPath = join(tmpdir(), 'mindgate-debug.log');
+try { writeFileSync(logPath, ''); } catch {}
 function dbg(...args: unknown[]) {
   const msg = `[${new Date().toISOString()}] ${args.map(a => String(a)).join(' ')}\n`;
   try { appendFileSync(logPath, msg); } catch {}
@@ -291,7 +292,6 @@ function setupIPC() {
       const [x, y] = overlayWindow.getPosition();
       const [w, h] = overlayWindow.getSize();
       console.log(`[Main] Debug: overlay at (${x},${y}) size ${w}x${h}, visible: ${overlayWindow.isVisible()}`);
-      overlayWindow.webContents.executeJavaScript('window.__showOverlay && window.__showOverlay()').catch(() => {});
     }
     return true;
   });
