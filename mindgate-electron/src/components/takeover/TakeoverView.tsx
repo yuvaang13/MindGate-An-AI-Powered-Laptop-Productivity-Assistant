@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { Configuration } from '../../types';
 
 interface TakeoverViewProps {
@@ -6,27 +5,7 @@ interface TakeoverViewProps {
   onDismiss: () => void;
 }
 
-export const TakeoverView: React.FC<TakeoverViewProps> = ({ configuration, onDismiss }) => {
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  const handleOpenNewTab = () => {
-    void window.mindgateAPI.launchURL('about:blank');
-    onDismiss();
-  };
-
-  const handleOpenProductiveApp = () => {
-    if (configuration.settings.productiveApps.length === 0) {
-      setFeedback('Add productive apps in Settings first.');
-      return;
-    }
-
-    const randomApp = configuration.settings.productiveApps[
-      Math.floor(Math.random() * configuration.settings.productiveApps.length)
-    ];
-    void window.mindgateAPI.launchApp(randomApp);
-    onDismiss();
-  };
-
+export const TakeoverView = ({ configuration, onDismiss }: TakeoverViewProps) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 4px', pointerEvents: 'auto' }}>
       <div style={{ textAlign: 'center' }}>
@@ -37,10 +16,6 @@ export const TakeoverView: React.FC<TakeoverViewProps> = ({ configuration, onDis
           Your work is waiting for you.
         </p>
       </div>
-
-      {feedback && (
-        <p style={{ fontSize: 12, color: '#cc3b2e', textAlign: 'center', margin: 0 }}>{feedback}</p>
-      )}
 
       <div style={{ marginBottom: 8 }}>
         <p style={{ fontSize: 13, fontWeight: 600, color: '#333', margin: '0 0 8px 0' }}>
@@ -58,40 +33,6 @@ export const TakeoverView: React.FC<TakeoverViewProps> = ({ configuration, onDis
             <span style={{ fontSize: 13, color: '#666' }}>Review your priorities and get back to focused work.</span>
           )}
         </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={handleOpenNewTab}
-          style={{
-            flex: 1,
-            padding: '8px 0',
-            borderRadius: 4,
-            background: '#e0e0e0',
-            border: 'none',
-            color: '#000',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          New Tab
-        </button>
-
-        <button
-          onClick={handleOpenProductiveApp}
-          style={{
-            flex: 1,
-            padding: '8px 0',
-            borderRadius: 4,
-            background: '#e0e0e0',
-            border: 'none',
-            color: '#000',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          Open App
-        </button>
       </div>
 
       <button

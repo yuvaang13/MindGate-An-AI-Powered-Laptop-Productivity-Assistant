@@ -3,8 +3,6 @@ import type { ActiveWindowInfo } from '../types.js';
 export interface PlatformMonitor {
   getActiveWindow(): Promise<ActiveWindowInfo | null>;
   getActiveBrowserURL?(identifier: string): Promise<string | null>;
-  closeBrowserTab?(identifier: string): Promise<boolean>;
-  hideApplication?(processName: string): Promise<boolean>;
   setPermissionsGranted?(): void;
 }
 
@@ -36,20 +34,6 @@ export class SystemMonitor {
       await this.initialize();
     }
     return this.platformMonitor?.getActiveBrowserURL?.(identifier) ?? null;
-  }
-
-  async closeBrowserTab(identifier: string): Promise<boolean> {
-    if (!this.platformMonitor) {
-      await this.initialize();
-    }
-    return this.platformMonitor?.closeBrowserTab?.(identifier) ?? false;
-  }
-
-  async hideApplication(processName: string): Promise<boolean> {
-    if (!this.platformMonitor) {
-      await this.initialize();
-    }
-    return this.platformMonitor?.hideApplication?.(processName) ?? false;
   }
 
   setPermissionsGranted(): void {

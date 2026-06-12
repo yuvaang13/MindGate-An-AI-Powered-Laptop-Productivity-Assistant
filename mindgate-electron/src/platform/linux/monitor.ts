@@ -82,27 +82,4 @@ export class LinuxMonitor {
     }
   }
 
-  async closeBrowserTab(_identifier: string): Promise<boolean> {
-    try {
-      await execAsync('xdotool key ctrl+w', { timeout: 2000 });
-      return true;
-    } catch (error) {
-      console.error('Failed to close browser tab on Linux:', error);
-      return false;
-    }
-  }
-
-  async hideApplication(processName: string): Promise<boolean> {
-    try {
-      const safeName = processName.replace(/"/g, '');
-      await execAsync(
-        `wmctrl -r :ACTIVE: -b add,hidden 2>/dev/null || xdotool search --classname "${safeName}" windowminimize 2>/dev/null || xdotool key alt+F9`,
-        { timeout: 3000 }
-      );
-      return true;
-    } catch (error) {
-      console.error('Failed to hide application on Linux:', error);
-      return false;
-    }
-  }
 }

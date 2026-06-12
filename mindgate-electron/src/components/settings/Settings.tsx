@@ -100,29 +100,6 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
       </section>
 
       <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 12 }}>Monitored Browsers</h2>
-        <textarea
-          value={settings.monitoredBrowsers.join('\n')}
-          onChange={(e) => setSettings({
-            ...settings,
-            monitoredBrowsers: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
-          })}
-          placeholder="One browser per line..."
-          style={{
-            width: '100%',
-            height: 80,
-            background: '#2a2a2a',
-            border: '1px solid #444',
-            borderRadius: 8,
-            color: 'white',
-            padding: 12,
-            fontSize: 14,
-            resize: 'none',
-          }}
-        />
-      </section>
-
-      <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>Ollama Configuration</h2>
 
         <div style={{ marginBottom: 12 }}>

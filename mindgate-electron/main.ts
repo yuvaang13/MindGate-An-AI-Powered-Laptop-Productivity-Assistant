@@ -1,9 +1,7 @@
-import { app, BrowserWindow, ipcMain, Tray, screen, Menu, nativeImage, systemPreferences, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, screen, Menu, nativeImage, systemPreferences } from 'electron';
 import { join } from 'path';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import { ConfigurationService } from './src/services/configurationService.js';
 import { DecisionEngine } from './src/services/decisionEngine.js';
 import { WorkspaceMonitor } from './src/services/workspaceMonitor.js';
@@ -11,8 +9,6 @@ import { WindowManager } from './src/services/windowManager.js';
 import { SystemMonitor } from './src/services/platformWrapper.js';
 import { getPreloadPath, getRendererIndexPath, getTrayIconPath } from './src/utils/appPaths.js';
 import type { ActiveWindowInfo, Configuration } from './src/types.js';
-
-const execAsync = promisify(exec);
 
 const logPath = join(tmpdir(), 'mindgate-debug.log');
 try { writeFileSync(logPath, ''); } catch { /* ignore */ }
@@ -117,7 +113,7 @@ async function initialize() {
   await systemMonitor.initialize();
 
   decisionEngine = new DecisionEngine(configurationService.getConfiguration());
-  windowManager = new WindowManager(configurationService.getConfiguration(), systemMonitor);
+  windowManager = new WindowManager(configurationService.getConfiguration());
 
   workspaceMonitor = new WorkspaceMonitor(
     configurationService.getConfiguration(),
@@ -307,10 +303,6 @@ function setupIPC() {
     windowManager.hideOverlay();
   });
 
-  ipcMain.handle('close-distraction', async () => {
-    await windowManager.closeDistraction(windowManager.getTargetApp());
-  });
-
   ipcMain.handle('show-settings', async () => {
     openSettingsWindow();
     return true;
@@ -326,34 +318,6 @@ function setupIPC() {
 
   ipcMain.handle('get-remaining-access-time', () => {
     return decisionEngine.getRemainingTime();
-  });
-
-  ipcMain.handle('debug-show-overlay', async () => {
-    windowManager.showOverlay();
-    return true;
-  });
-
-  ipcMain.handle('launch-url', async (_event, url: string) => {
-    try {
-      await shell.openExternal(url);
-    } catch (err) {
-      console.error('Failed to open URL:', err);
-    }
-  });
-
-  ipcMain.handle('launch-app', async (_event, appName: string) => {
-    try {
-      if (process.platform === 'darwin') {
-        await shell.openPath(join('/Applications', `${appName}.app`));
-      } else if (process.platform === 'win32') {
-        await execAsync(`start "" "${appName.replace(/"/g, '')}"`, { shell: 'cmd.exe' });
-      } else {
-        const safeName = appName.replace(/"/g, '');
-        await execAsync(`xdg-open "${safeName}" 2>/dev/null || gtk-launch ${safeName.toLowerCase()} 2>/dev/null || ${safeName}`);
-      }
-    } catch (err) {
-      console.error('Failed to launch app:', err);
-    }
   });
 
   ollamaStatusInterval = setInterval(async () => {

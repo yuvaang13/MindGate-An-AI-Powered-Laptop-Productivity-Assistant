@@ -65,11 +65,23 @@ const App: React.FC = () => {
   const overlayRef = useRef<OverlayHandle>(null);
 
   useEffect(() => {
-    window.mindgateAPI.getConfiguration().then(setConfiguration).catch((e: unknown) => {
-      console.error('[App] getConfiguration failed:', e);
-    });
-
-    window.mindgateAPI.checkAccessibilityPermission().then(setHasPermission);
+    if (window.mindgateAPI) {
+      window.mindgateAPI.getConfiguration().then(setConfiguration).catch((e: unknown) => {
+        console.error('[App] getConfiguration failed:', e);
+      });
+      window.mindgateAPI.checkAccessibilityPermission().then(setHasPermission);
+    } else {
+      console.warn('[App] mindgateAPI not available yet');
+      const check = () => {
+        if (window.mindgateAPI) {
+          window.mindgateAPI.getConfiguration().then(setConfiguration).catch(() => {});
+          window.mindgateAPI.checkAccessibilityPermission().then(setHasPermission);
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      setTimeout(check, 100);
+    }
   }, []);
 
   const pendingShowRef = useRef(false);

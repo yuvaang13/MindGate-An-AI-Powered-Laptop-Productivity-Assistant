@@ -14,7 +14,14 @@ const RootComponent = () => {
 
   useEffect(() => {
     if (isSettingsWindow) {
-      window.mindgateAPI.getConfiguration().then(setConfiguration).finally(() => setLoading(false));
+      const load = () => {
+        if (window.mindgateAPI) {
+          window.mindgateAPI.getConfiguration().then(setConfiguration).finally(() => setLoading(false));
+        } else {
+          setTimeout(load, 100);
+        }
+      };
+      setTimeout(load, 100);
     }
   }, []);
 

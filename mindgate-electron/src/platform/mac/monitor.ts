@@ -206,45 +206,6 @@ end tell`;
     }
   }
 
-  async closeBrowserTab(identifier: string): Promise<boolean> {
-    if (!identifier) return false;
-
-    try {
-      const id = identifier.toLowerCase();
-      const safeId = escapeAppleScriptString(identifier);
-      const isBundleID = id.includes('.');
-      const tellPrefix = isBundleID ? 'application id' : 'application';
-      let script: string;
-
-      if (id.includes('chrome') || id.includes('brave') || id.includes('edge')) {
-        script = `tell ${tellPrefix} "${safeId}" to close active tab of front window`;
-      } else if (id.includes('safari')) {
-        script = `tell ${tellPrefix} "${safeId}" to close current tab of front window`;
-      } else if (id.includes('firefox')) {
-        script = `tell ${tellPrefix} "${safeId}" to close front window`;
-      } else {
-        return false;
-      }
-
-      await runAppleScript(script, 3000);
-      return true;
-    } catch (error) {
-      console.error('Failed to close browser tab:', error);
-      return false;
-    }
-  }
-
-  async hideApplication(processName: string): Promise<boolean> {
-    try {
-      const safeName = escapeAppleScriptString(processName);
-      await runAppleScript(`tell application "${safeName}" to hide`, 3000);
-      return true;
-    } catch (error) {
-      console.error('Failed to hide application:', error);
-      return false;
-    }
-  }
-
   private async getMainScreenHeight(): Promise<number> {
     if (this.cachedScreenHeight !== null) {
       return this.cachedScreenHeight;

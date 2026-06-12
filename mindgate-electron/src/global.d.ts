@@ -15,15 +15,11 @@ declare global {
       grantAccess: (durationSeconds: number) => Promise<void>;
       getConfiguration: () => Promise<Configuration>;
       hideOverlay: () => Promise<void>;
-      closeDistraction: () => Promise<void>;
       showSettings: () => Promise<boolean>;
       updateSettings: (settings: Partial<Configuration['settings']>) => Promise<boolean>;
       getRemainingAccessTime: () => Promise<number>;
       checkAccessibilityPermission: () => Promise<boolean>;
       requestAccessibilityPermission: () => Promise<boolean>;
-      launchURL: (url: string) => Promise<void>;
-      launchApp: (appName: string) => Promise<void>;
-      debugShowOverlay: () => Promise<boolean>;
       getAvailableModels: () => Promise<string[]>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };

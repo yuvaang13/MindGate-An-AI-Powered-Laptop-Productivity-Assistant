@@ -10,16 +10,12 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   grantAccess: (durationSeconds: number) => ipcRenderer.invoke('grant-access', durationSeconds),
   getConfiguration: () => ipcRenderer.invoke('get-configuration'),
   hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
-  closeDistraction: () => ipcRenderer.invoke('close-distraction'),
   showSettings: () => ipcRenderer.invoke('show-settings'),
   updateSettings: (settings: Partial<Configuration['settings']>) =>
     ipcRenderer.invoke('update-settings', settings),
   getRemainingAccessTime: () => ipcRenderer.invoke('get-remaining-access-time'),
   checkAccessibilityPermission: () => ipcRenderer.invoke('check-accessibility-permission'),
   requestAccessibilityPermission: () => ipcRenderer.invoke('request-accessibility-permission'),
-  launchURL: (url: string) => ipcRenderer.invoke('launch-url', url),
-  launchApp: (appName: string) => ipcRenderer.invoke('launch-app', appName),
-  debugShowOverlay: () => ipcRenderer.invoke('debug-show-overlay'),
   getAvailableModels: () => ipcRenderer.invoke('get-available-models'),
 
   onOllamaStatusChanged: (callback: (connected: boolean) => void) => {
@@ -46,15 +42,11 @@ declare global {
       grantAccess: (durationSeconds: number) => Promise<void>;
       getConfiguration: () => Promise<Configuration>;
       hideOverlay: () => Promise<void>;
-      closeDistraction: () => Promise<void>;
       showSettings: () => Promise<boolean>;
       updateSettings: (settings: Partial<Configuration['settings']>) => Promise<boolean>;
       getRemainingAccessTime: () => Promise<number>;
       checkAccessibilityPermission: () => Promise<boolean>;
       requestAccessibilityPermission: () => Promise<boolean>;
-      launchURL: (url: string) => Promise<void>;
-      launchApp: (appName: string) => Promise<void>;
-      debugShowOverlay: () => Promise<boolean>;
       getAvailableModels: () => Promise<string[]>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };
