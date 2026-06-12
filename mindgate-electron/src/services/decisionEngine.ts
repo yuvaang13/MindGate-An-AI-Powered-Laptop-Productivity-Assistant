@@ -1,6 +1,8 @@
 import { OllamaService } from './ollamaService.js';
 import { ActiveWindowInfo, ChatMessage, ChatResponse, Configuration } from '../types.js';
 
+const MAX_CHAT_HISTORY = 40;
+
 export class DecisionEngine {
   private ollamaService: OllamaService;
   private currentApp: ActiveWindowInfo | null = null;
@@ -60,12 +62,14 @@ Your first message to them should be a brief, firm question asking why they need
 
   async sendChatMessage(userInput: string): Promise<ChatResponse> {
     this.chatHistory.push({ role: 'user', content: userInput, timestamp: Date.now() });
+    this.trimChatHistory();
 
     const context = this.getDistractionContext();
     const response = await this.ollamaService.chat(this.chatHistory, context);
     const cleanResponse = response.replace(/^MindGate:\s*/i, '').trim();
 
     this.chatHistory.push({ role: 'ai', content: cleanResponse, timestamp: Date.now() });
+    this.trimChatHistory();
 
     if (this.parseKeyword(cleanResponse, 'APPROVED')) {
       const mins = this.parseDurationMinutes(cleanResponse);
@@ -77,6 +81,12 @@ Your first message to them should be a brief, firm question asking why they need
     }
 
     return { message: cleanResponse, isApproved: null };
+  }
+
+  private trimChatHistory(): void {
+    if (this.chatHistory.length > MAX_CHAT_HISTORY) {
+      this.chatHistory = this.chatHistory.slice(-MAX_CHAT_HISTORY);
+    }
   }
 
   private parseKeyword(response: string, keyword: string): boolean {
@@ -114,30 +124,39 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
         : 'Access denied. Stay focused on your work.';
 
       return { isApproved, message };
-    } catch (error) {
+    } catch {
       return {
         isApproved: false,
-        message: 'AI service unavailable. Access denied.'
+        message: 'AI service unavailable. Access denied.',
       };
     }
   }
 
   grantAccess(duration: number): void {
-    this.accessTimer && clearTimeout(this.accessTimer);
+    if (this.accessTimer) clearTimeout(this.accessTimer);
     this.grantedAppIdentifier = this.currentApp ? this.getAppIdentifier(this.currentApp) : null;
-    this.accessExpiresAt = Date.now() + (duration * 1000);
+    this.accessExpiresAt = Date.now() + duration * 1000;
 
     this.accessTimer = setTimeout(() => {
       this.revokeAccessAndReappear();
     }, duration * 1000);
   }
 
-  private revokeAccessAndReappear(): void {
-    this.accessTimer = null;
+  revokeAccessAndReappear(): void {
+    if (this.accessTimer) {
+      clearTimeout(this.accessTimer);
+      this.accessTimer = null;
+    }
     const expiredIdentifier = this.grantedAppIdentifier;
     this.grantedAppIdentifier = null;
     this.accessExpiresAt = null;
     this.onAccessExpired?.(expiredIdentifier);
+  }
+
+  expireAccessIfNeeded(): void {
+    if (this.accessExpiresAt !== null && this.accessExpiresAt <= Date.now()) {
+      this.revokeAccessAndReappear();
+    }
   }
 
   hasActiveAccess(app: ActiveWindowInfo): boolean {
@@ -146,7 +165,6 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
     }
 
     if (this.accessExpiresAt <= Date.now()) {
-      this.revokeAccessAndReappear();
       return false;
     }
 
@@ -154,7 +172,7 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
   }
 
   cancelAccessTimer(): void {
-    this.accessTimer && clearTimeout(this.accessTimer);
+    if (this.accessTimer) clearTimeout(this.accessTimer);
     this.accessTimer = null;
     this.grantedAppIdentifier = null;
     this.accessExpiresAt = null;

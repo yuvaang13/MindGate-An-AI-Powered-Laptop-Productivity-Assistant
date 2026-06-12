@@ -1,6 +1,6 @@
 import { Configuration, AppSettings } from '../types.js';
 import { app } from 'electron';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 
 export class ConfigurationService {
@@ -69,12 +69,6 @@ export class ConfigurationService {
     if (typeof config.theme.dimensions.overlayHeight !== 'number' || config.theme.dimensions.overlayHeight <= 0) {
       config.theme.dimensions.overlayHeight = defaults.theme.dimensions.overlayHeight;
     }
-    if (typeof config.theme.dimensions.overlayXOffset !== 'number') {
-      config.theme.dimensions.overlayXOffset = defaults.theme.dimensions.overlayXOffset;
-    }
-    if (typeof config.theme.dimensions.overlayYOffset !== 'number') {
-      config.theme.dimensions.overlayYOffset = defaults.theme.dimensions.overlayYOffset;
-    }
   }
 
   private getDefaultConfiguration(): Configuration {
@@ -87,7 +81,6 @@ export class ConfigurationService {
           'Snapchat', 'Pinterest', 'LinkedIn', 'Tumblr',
           'Tinder', 'Bumble', 'Hinge', 'Grindr',
           'Steam', 'Epic Games', 'Battle.net', 'Roblox', 'Minecraft',
-          'Twitch',
           'Amazon', 'eBay', 'Etsy', 'Walmart', 'Target', 'Best Buy',
           'AliExpress', 'Temu', 'Shein', 'Wish',
         ],
@@ -186,8 +179,6 @@ animation: {
           overlayWidth: 280,
           overlayHeight: 280,
           chatCornerRadius: 24,
-          overlayXOffset: 24,
-          overlayYOffset: 24
         }
       }
     };
@@ -215,7 +206,7 @@ animation: {
 
   private saveConfiguration(config: Configuration): void {
     try {
-      const dir = this.filePath.substring(0, this.filePath.lastIndexOf('/'));
+      const dir = dirname(this.filePath);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
       }

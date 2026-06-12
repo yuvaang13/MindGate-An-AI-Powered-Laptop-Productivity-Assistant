@@ -18,8 +18,6 @@ import { EventEmitter } from 'events';
 export class WorkspaceObserver extends EventEmitter {
   private process: ChildProcess | null = null;
   private restartTimer: NodeJS.Timeout | null = null;
-  private healthTimer: NodeJS.Timeout | null = null;
-  private lastEventTime: number = Date.now();
   private stopped: boolean = false;
 
   start(): void {
@@ -62,7 +60,6 @@ export class WorkspaceObserver extends EventEmitter {
         const appName = line.trim();
         // AppleScript `log` writes bare, `error` writes "execution error:…"
         if (appName && !appName.startsWith('execution error:')) {
-          this.lastEventTime = Date.now();
           this.emit('app-activated', appName);
         }
       }
@@ -83,15 +80,6 @@ export class WorkspaceObserver extends EventEmitter {
         this.scheduleRestart();
       }
     });
-
-    // Health check: restart if no events for 60s
-    this.healthTimer = setInterval(() => {
-      if (this.process && !this.stopped && Date.now() - this.lastEventTime > 60_000) {
-        console.log('[WorkspaceObserver] No events for 60s — recycling process');
-        this.killProcess();
-        this.scheduleRestart();
-      }
-    }, 30_000);
   }
 
   private scheduleRestart(): void {
@@ -109,10 +97,6 @@ export class WorkspaceObserver extends EventEmitter {
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
-    }
-    if (this.healthTimer) {
-      clearInterval(this.healthTimer);
-      this.healthTimer = null;
     }
     this.killProcess();
     this.removeAllListeners();

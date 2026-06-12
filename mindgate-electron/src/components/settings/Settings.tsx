@@ -16,11 +16,20 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
     accessDurationLabels: ['5 Mins', '10 Mins', '15 Mins'],
     productiveTasks: [],
     productiveApps: [],
-    justificationCountdownDuration: 15
+    justificationCountdownDuration: 15,
   });
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSave = () => {
-    window.mindgateAPI.updateSettings(settings);
+  const handleSave = async () => {
+    setSaveMessage(null);
+    setSaveError(null);
+    try {
+      await window.mindgateAPI.updateSettings(settings);
+      setSaveMessage('Settings saved successfully.');
+    } catch {
+      setSaveError('Failed to save settings. Please try again.');
+    }
   };
 
   return (
@@ -29,9 +38,20 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
       background: '#1a1a1a',
       minHeight: '100vh',
       color: 'white',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     }}>
       <h1 style={{ marginTop: 0, marginBottom: 20 }}>MindGate Settings</h1>
+
+      {saveMessage && (
+        <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: 'rgba(52, 199, 89, 0.2)', color: '#34c759' }}>
+          {saveMessage}
+        </div>
+      )}
+      {saveError && (
+        <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: 'rgba(255, 59, 48, 0.2)', color: '#ff3b30' }}>
+          {saveError}
+        </div>
+      )}
 
       <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>Distracting Apps</h2>
@@ -39,7 +59,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
           value={settings.distractingApps.join('\n')}
           onChange={(e) => setSettings({
             ...settings,
-            distractingApps: e.target.value.split('\n').map(s => s.trim()).filter(s => s)
+            distractingApps: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
           })}
           placeholder="One app per line..."
           style={{
@@ -51,7 +71,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
             color: 'white',
             padding: 12,
             fontSize: 14,
-            resize: 'none'
+            resize: 'none',
           }}
         />
       </section>
@@ -62,7 +82,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
           value={settings.restrictedKeywords.join('\n')}
           onChange={(e) => setSettings({
             ...settings,
-            restrictedKeywords: e.target.value.split('\n').map(s => s.trim()).filter(s => s)
+            restrictedKeywords: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
           })}
           placeholder="One keyword per line..."
           style={{
@@ -74,7 +94,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
             color: 'white',
             padding: 12,
             fontSize: 14,
-            resize: 'none'
+            resize: 'none',
           }}
         />
       </section>
@@ -85,7 +105,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
           value={settings.monitoredBrowsers.join('\n')}
           onChange={(e) => setSettings({
             ...settings,
-            monitoredBrowsers: e.target.value.split('\n').map(s => s.trim()).filter(s => s)
+            monitoredBrowsers: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
           })}
           placeholder="One browser per line..."
           style={{
@@ -97,7 +117,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
             color: 'white',
             padding: 12,
             fontSize: 14,
-            resize: 'none'
+            resize: 'none',
           }}
         />
       </section>
@@ -118,7 +138,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
               borderRadius: 8,
               color: 'white',
               padding: 8,
-              fontSize: 14
+              fontSize: 14,
             }}
           />
         </div>
@@ -136,7 +156,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
               borderRadius: 8,
               color: 'white',
               padding: 8,
-              fontSize: 14
+              fontSize: 14,
             }}
           />
         </div>
@@ -145,36 +165,36 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
       <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 16, marginBottom: 12 }}>Access Durations (seconds)</h2>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-{settings.accessDurationLabels.map((label, index) => (
-             <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-               <input
-                 type="number"
-                 value={settings.accessDurations[index] / 60}
-                 onChange={(e) => {
-                   const minutes = parseInt(e.target.value, 10) || 0;
-                   const newDurations = [...settings.accessDurations];
-                   newDurations[index] = minutes * 60;
-                   setSettings({ ...settings, accessDurations: newDurations });
-                 }}
-                 style={{
-                   width: 60,
-                   background: '#2a2a2a',
-                   border: '1px solid #444',
-                   borderRadius: 8,
-                   color: 'white',
-                   padding: 8,
-                   fontSize: 14
-                 }}
-               />
-               <span>min ({label})</span>
-             </div>
-           ))}
+          {settings.accessDurationLabels.map((label, index) => (
+            <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <input
+                type="number"
+                value={settings.accessDurations[index] / 60}
+                onChange={(e) => {
+                  const minutes = parseInt(e.target.value, 10) || 0;
+                  const newDurations = [...settings.accessDurations];
+                  newDurations[index] = minutes * 60;
+                  setSettings({ ...settings, accessDurations: newDurations });
+                }}
+                style={{
+                  width: 60,
+                  background: '#2a2a2a',
+                  border: '1px solid #444',
+                  borderRadius: 8,
+                  color: 'white',
+                  padding: 8,
+                  fontSize: 14,
+                }}
+              />
+              <span>min ({label})</span>
+            </div>
+          ))}
         </div>
       </section>
 
       <div style={{ display: 'flex', gap: 12 }}>
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           style={{
             padding: '10px 20px',
             borderRadius: 8,
@@ -182,7 +202,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
             border: 'none',
             color: 'white',
             fontSize: 14,
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
           Save Settings
@@ -197,7 +217,7 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
             border: 'none',
             color: 'white',
             fontSize: 14,
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
           Close

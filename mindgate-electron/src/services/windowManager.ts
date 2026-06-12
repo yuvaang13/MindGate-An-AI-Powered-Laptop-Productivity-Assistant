@@ -1,18 +1,17 @@
 import { BrowserWindow, screen } from 'electron';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import type { Configuration, ActiveWindowInfo } from '../types.js';
-import { SystemMonitor } from './platformWrapper.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import type { SystemMonitor } from './platformWrapper.js';
+import { getPreloadPath } from '../utils/appPaths.js';
 
 export class WindowManager {
   private overlayWindow: BrowserWindow | null = null;
   private configuration: Configuration;
   private targetApp: ActiveWindowInfo | null = null;
+  private systemMonitor: SystemMonitor;
 
-  constructor(configuration: Configuration) {
+  constructor(configuration: Configuration, systemMonitor: SystemMonitor) {
     this.configuration = configuration;
+    this.systemMonitor = systemMonitor;
   }
 
   setOverlayWindow(window: BrowserWindow) {
@@ -27,19 +26,37 @@ export class WindowManager {
     return this.targetApp;
   }
 
-  createOverlayWindow(): BrowserWindow {
+  private getOverlayPosition(width: number, height: number): { x: number; y: number } {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { bounds } = primaryDisplay;
-    const xOffset = this.configuration.theme.dimensions.overlayXOffset ?? 24;
-    const yOffset = this.configuration.theme.dimensions.overlayYOffset ?? 24;
+    const xOffset = this.configuration.theme.dimensions.overlayXOffset;
+    const yOffset = this.configuration.theme.dimensions.overlayYOffset;
+
+    if (xOffset !== undefined && yOffset !== undefined) {
+      return {
+        x: Math.round(bounds.x + xOffset),
+        y: Math.round(bounds.y + yOffset),
+      };
+    }
+
+    return {
+      x: Math.round(bounds.x + (bounds.width - width) / 2),
+      y: Math.round(bounds.y + (bounds.height - height) / 2),
+    };
+  }
+
+  createOverlayWindow(): BrowserWindow {
+    const width = this.configuration.theme.dimensions.overlayWidth ?? 280;
+    const height = this.configuration.theme.dimensions.overlayHeight ?? 280;
+    const { x, y } = this.getOverlayPosition(width, height);
 
     this.overlayWindow = new BrowserWindow({
-      x: Math.round(bounds.x + xOffset),
-      y: Math.round(bounds.y + yOffset),
-      width: this.configuration.theme.dimensions.overlayWidth ?? 280,
-      height: this.configuration.theme.dimensions.overlayHeight ?? 280,
-      transparent: false,
-      backgroundColor: '#ffffff',
+      x,
+      y,
+      width,
+      height,
+      transparent: true,
+      backgroundColor: '#00000000',
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
@@ -51,10 +68,10 @@ export class WindowManager {
       minimizable: false,
       maximizable: false,
       webPreferences: {
-        preload: join(__dirname, '../preload.js'),
+        preload: getPreloadPath(),
         contextIsolation: true,
-        nodeIntegration: false
-      }
+        nodeIntegration: false,
+      },
     });
 
     return this.overlayWindow;
@@ -63,49 +80,46 @@ export class WindowManager {
   showOverlay() {
     const width = this.configuration.theme.dimensions.overlayWidth ?? 280;
     const height = this.configuration.theme.dimensions.overlayHeight ?? 280;
-    const xOffset = this.configuration.theme.dimensions.overlayXOffset ?? 24;
-    const yOffset = this.configuration.theme.dimensions.overlayYOffset ?? 24;
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const viewBounds = primaryDisplay.bounds;
-
-    const x = Math.round(viewBounds.x + xOffset);
-    const y = Math.round(viewBounds.y + yOffset);
-    console.log(`[WindowManager] Positioning overlay top-left (${x},${y}) size ${width}x${height}`);
+    const { x, y } = this.getOverlayPosition(width, height);
 
     this.overlayWindow?.setPosition(x, y);
     this.overlayWindow?.setSize(width, height);
     this.overlayWindow?.show();
     this.overlayWindow?.focus();
     this.overlayWindow?.moveTop();
-    console.log('[WindowManager] Overlay shown, visible:', this.overlayWindow?.isVisible(), 'position:', this.overlayWindow?.getPosition());
+
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.webContents
+        .executeJavaScript('window.__showOverlay?.()', true)
+        .catch((err) => console.warn('[WindowManager] __showOverlay call failed:', err));
+    }
   }
 
   hideOverlay() {
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.webContents
+        .executeJavaScript('window.__hideOverlay?.()', true)
+        .catch(() => {});
+    }
     this.overlayWindow?.hide();
   }
 
-  async closeDistraction(app: ActiveWindowInfo) {
-    const monitor = new SystemMonitor();
-    await monitor.initialize();
+  async closeDistraction(_storedApp?: ActiveWindowInfo | null) {
+    const app = (await this.systemMonitor.getActiveWindow()) ?? this.targetApp;
+    if (!app) return;
 
-    const isBrowser = this.configuration.settings.monitoredBrowsers.some(browser =>
+    const isBrowser = this.configuration.settings.monitoredBrowsers.some((browser) =>
       app.processName.toLowerCase().includes(browser.toLowerCase())
     );
 
     if (isBrowser) {
-      const identifier = app.bundleID || app.exeName || '';
-      await monitor.closeBrowserTab(identifier);
+      const identifier = app.bundleID || app.exeName || app.processName;
+      await this.systemMonitor.closeBrowserTab(identifier);
     } else {
-      await monitor.hideApplication(app.processName);
+      await this.systemMonitor.hideApplication(app.processName);
     }
 
     this.hideOverlay();
-  }
-
-  grantAccess(duration: number) {
-    setTimeout(() => {
-      this.hideOverlay();
-    }, duration * 1000);
   }
 
   updateConfiguration(config: Configuration) {

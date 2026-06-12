@@ -1,8 +1,40 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import { ActiveWindowInfo } from '../../types.js';
 
-const execAsync = promisify(exec);
+function runPowerShell(script: string, timeout = 5000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    const child = spawn(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
+      { stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error('PowerShell timed out'));
+    }, timeout);
+
+    child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(stderr.trim() || `PowerShell exited with code ${code}`));
+      }
+    });
+  });
+}
 
 export class WindowsMonitor {
   async getActiveWindow(): Promise<ActiveWindowInfo | null> {
@@ -39,16 +71,13 @@ if ($process) {
   "$($process.ProcessName)|$($sb.ToString())|$($rect.Left)|$($rect.Top)|$($rect.Right-$rect.Left)|$($rect.Bottom-$rect.Top)|$($process.MainModule.ModuleName)"
 }
 `;
-      const { stdout } = await execAsync(`powershell -ExecutionPolicy Bypass -Command "${psScript.replace(/"/g, '\\"')}"`, { timeout: 5000 });
-
-      if (!stdout?.trim()) {
-        return null;
-      }
+      const stdout = await runPowerShell(psScript);
+      if (!stdout) return null;
 
       const parts = stdout.trim().split('|');
       const [processName, windowTitle, x, y, width, height, exeName] = parts;
 
-      return {
+      const info: ActiveWindowInfo = {
         processName: processName || 'unknown',
         windowTitle: windowTitle || '',
         exeName: exeName || '',
@@ -56,9 +85,16 @@ if ($process) {
           x: parseInt(x, 10) || 0,
           y: parseInt(y, 10) || 0,
           width: parseInt(width, 10) || 0,
-          height: parseInt(height, 10) || 0
-        }
+          height: parseInt(height, 10) || 0,
+        },
       };
+
+      const browserURL = await this.getActiveBrowserURL(info.exeName || info.processName);
+      if (browserURL) {
+        info.browserURL = browserURL;
+      }
+
+      return info;
     } catch (error) {
       console.error('Failed to get active window on Windows:', error);
       return null;
@@ -69,31 +105,28 @@ if ($process) {
     if (!exeName) return null;
 
     try {
-      const normalizedExe = exeName.toLowerCase();
-      const processName = normalizedExe.replace('.exe', '').replace('.EXE', '');
-
+      const processName = exeName.toLowerCase().replace(/\.exe$/i, '');
       const script = `
-$processes = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 }
-if ($processes) {
-  $activeProc = $processes | Sort-Object -Property StartTime -Descending | Select-Object -First 1
-  if ($activeProc -and $activeProc.MainWindowTitle) {
-    $title = $activeProc.MainWindowTitle
-    if ($title -match "^(https?://)") {
-      Write-Output $title
-    } else {
-      $urlMatch = $title -match "^[^-]+?(https?://)?(.*)"
-      if ($urlMatch) {
-        Write-Output $Matches[2]
-      } else {
-        Write-Output $title
-      }
-    }
-  }
+$process = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue |
+  Where-Object { $_.MainWindowHandle -ne 0 } |
+  Sort-Object -Property StartTime -Descending |
+  Select-Object -First 1
+if (-not $process -or -not $process.MainWindowTitle) { return }
+$title = $process.MainWindowTitle
+if ($title -match '(https?://[^\\s]+)') {
+  Write-Output $Matches[1]
+  return
+}
+if ($title -match '(www\\.[^\\s]+)') {
+  Write-Output ("https://" + $Matches[1])
+  return
+}
+if ($title -match ' - (Google Chrome|Microsoft Edge|Brave|Firefox|Opera)$') {
+  $site = $title -replace ' - (Google Chrome|Microsoft Edge|Brave|Firefox|Opera)$', ''
+  if ($site -match '\\.') { Write-Output ("https://" + $site) }
 }
 `;
-
-      const { stdout } = await execAsync(`powershell -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '\\"')}"`, { timeout: 3000 });
-      const url = stdout.trim();
+      const url = await runPowerShell(script, 3000);
       return url || null;
     } catch (error) {
       console.error('Failed to get browser URL:', error);
@@ -105,14 +138,26 @@ if ($processes) {
     if (!exeName) return false;
 
     try {
-      const processName = exeName.toLowerCase().replace('.exe', '').replace('.EXE', '');
+      const processName = exeName.toLowerCase().replace(/\.exe$/i, '');
       const script = `
-$processes = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if ($processes) {
-  $processes.CloseMainWindow() | Out-Null
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+  [DllImport("user32.dll")]
+  public static extern IntPtr GetForegroundWindow();
+}
+"@
+Add-Type -AssemblyName System.Windows.Forms
+$proc = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue |
+  Where-Object { $_.MainWindowHandle -ne 0 } |
+  Select-Object -First 1
+if ($proc) {
+  [void][Win32]::GetForegroundWindow()
+  [System.Windows.Forms.SendKeys]::SendWait("^w")
 }
 `;
-      await execAsync(`powershell -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '\\"')}"`, { timeout: 3000 });
+      await runPowerShell(script, 3000);
       return true;
     } catch (error) {
       console.error('Failed to close browser tab:', error);
@@ -122,13 +167,24 @@ if ($processes) {
 
   async hideApplication(processName: string): Promise<boolean> {
     try {
+      const safeName = processName.replace(/"/g, '');
       const script = `
-$process = Get-Process -Name "${processName}" -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($process) {
-  $process.CloseMainWindow() | Out-Null
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+  [DllImport("user32.dll")]
+  public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+"@
+$proc = Get-Process -Name "${safeName}" -ErrorAction SilentlyContinue |
+  Where-Object { $_.MainWindowHandle -ne 0 } |
+  Select-Object -First 1
+if ($proc) {
+  [Win32]::ShowWindow($proc.MainWindowHandle, 6) | Out-Null
 }
 `;
-      await execAsync(`powershell -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '\\"')}"`, { timeout: 3000 });
+      await runPowerShell(script, 3000);
       return true;
     } catch (error) {
       console.error('Failed to hide application:', error);

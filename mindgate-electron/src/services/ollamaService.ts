@@ -11,6 +11,19 @@ export class OllamaService {
     this.model = model;
   }
 
+  private getApiOrigin(): string {
+    try {
+      const url = new URL(this.baseURL);
+      return `${url.protocol}//${url.host}`;
+    } catch {
+      return this.baseURL.replace(/\/api\/generate\/?$/, '').replace(/\/$/, '');
+    }
+  }
+
+  private getTagsUrl(): string {
+    return `${this.getApiOrigin()}/api/tags`;
+  }
+
   async checkConnection(): Promise<boolean> {
     try {
       const tagsOk = await this.checkTagsEndpoint();
@@ -35,9 +48,9 @@ export class OllamaService {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(`${this.baseURL.replace('/api/generate', '/api/tags')}`, {
+      const response = await fetch(this.getTagsUrl(), {
         method: 'GET',
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeout);
       if (response.ok) {
@@ -49,19 +62,28 @@ export class OllamaService {
     }
   }
 
+  private modelMatches(available: string, requested: string): boolean {
+    if (available === requested) return true;
+    const [requestedName, requestedTag] = requested.split(':');
+    const [availableName, availableTag] = available.split(':');
+    if (availableName !== requestedName) return false;
+    if (!requestedTag) return true;
+    return availableTag === requestedTag;
+  }
+
   private async checkModelExists(): Promise<boolean> {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(`${this.baseURL.replace('/api/generate', '/api/tags')}`, {
+      const response = await fetch(this.getTagsUrl(), {
         method: 'GET',
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeout);
       if (!response.ok) return false;
-      const data = await response.json() as { models?: Array<{ name: string }> };
+      const data = (await response.json()) as { models?: Array<{ name: string }> };
       const models = data.models || [];
-      return models.some(m => m.name === this.model || m.name.startsWith(this.model.split(':')[0]));
+      return models.some((m) => this.modelMatches(m.name, this.model));
     } catch {
       return false;
     }
@@ -71,14 +93,14 @@ export class OllamaService {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(`${this.baseURL.replace('/api/generate', '/api/tags')}`, {
+      const response = await fetch(this.getTagsUrl(), {
         method: 'GET',
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeout);
       if (!response.ok) return [];
-      const data = await response.json() as { models?: Array<{ name: string }> };
-      return (data.models || []).map(m => m.name);
+      const data = (await response.json()) as { models?: Array<{ name: string }> };
+      return (data.models || []).map((m) => m.name);
     } catch {
       return [];
     }
@@ -89,7 +111,10 @@ export class OllamaService {
     if (models.length === 0) return null;
     const preferred = ['gemma3', 'llama3', 'llama', 'mistral', 'mixtral', 'phi', 'qwen', 'mathstral'];
     for (const name of preferred) {
-      const match = models.find(m => m.toLowerCase().startsWith(name));
+      const match = models.find((m) => {
+        const base = m.split(':')[0].toLowerCase();
+        return base === name;
+      });
       if (match) return match;
     }
     return models[0];
@@ -115,7 +140,7 @@ export class OllamaService {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async evaluateRequest(userInput: string): Promise<DecisionResult> {
@@ -123,57 +148,57 @@ export class OllamaService {
       const response = await fetch(this.baseURL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: this.model,
           prompt: `Evaluate this request for distraction access: "${userInput}". Is this a valid, productive reason? Respond with JSON containing isApproved (true/false) and a brief message explaining the decision.`,
-          stream: false
-        })
+          stream: false,
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as { response?: string; message?: string };
       const responseText = data.response || data.message || '';
 
       try {
         const parsed = JSON.parse(responseText);
         return {
           isApproved: parsed.isApproved ?? false,
-          message: parsed.message ?? 'Unable to determine approval'
+          message: parsed.message ?? 'Unable to determine approval',
         };
       } catch {
-        const isApproved = responseText.toLowerCase().includes('approved') ||
-                          responseText.toLowerCase().includes('valid');
+        const isApproved =
+          responseText.toLowerCase().includes('approved') ||
+          responseText.toLowerCase().includes('valid');
         return {
           isApproved,
-          message: responseText || 'No response from AI'
+          message: responseText || 'No response from AI',
         };
       }
     } catch (error) {
       console.error('Ollama request failed:', error);
       return {
         isApproved: false,
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
 
-  async generateRawResponse(prompt: string, _maxRetries: number = 1): Promise<string> {
+  async generateRawResponse(prompt: string, maxRetries: number = 3): Promise<string> {
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt < _maxRetries; attempt++) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        console.log(`[Ollama] generateRawResponse attempt ${attempt + 1}/${_maxRetries}`);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
         const response = await fetch(this.baseURL, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           signal: controller.signal,
           body: JSON.stringify({
@@ -182,9 +207,9 @@ export class OllamaService {
             stream: false,
             options: {
               temperature: 0.7,
-              top_p: 0.9
-            }
-          })
+              top_p: 0.9,
+            },
+          }),
         });
         clearTimeout(timeout);
 
@@ -193,15 +218,12 @@ export class OllamaService {
           throw new Error(`HTTP ${response.status}: ${body.slice(0, 200)}`);
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as { response?: string };
         this.retryCount = 0;
-        const result = (data.response || '').trim();
-        console.log(`[Ollama] generateRawResponse succeeded, ${result.length} chars`);
-        return result;
+        return (data.response || '').trim();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
-        console.warn(`[Ollama] Attempt ${attempt + 1} failed:`, lastError.message);
-        if (attempt < _maxRetries - 1) {
+        if (attempt < maxRetries - 1) {
           this.retryCount++;
           const delay = this.getRetryDelay();
           await this.sleep(delay);
@@ -209,8 +231,7 @@ export class OllamaService {
       }
     }
 
-    console.error('[Ollama] generateRawResponse failed after all retries:', lastError);
-    throw lastError;
+    throw lastError ?? new Error('Ollama request failed');
   }
 
   updateConfig(baseURL: string, model: string): void {
@@ -233,10 +254,12 @@ Distraction context: ${distractionContext || 'Accessing a distracting website or
 
 Conversation history:`;
 
-    const conversationText = messages.map(m => {
-      const label = m.role === 'user' ? 'User' : 'MindGate';
-      return `${label}: ${m.content}`;
-    }).join('\n\n');
+    const conversationText = messages
+      .map((m) => {
+        const label = m.role === 'user' ? 'User' : 'MindGate';
+        return `${label}: ${m.content}`;
+      })
+      .join('\n\n');
 
     const fullPrompt = `${systemPrompt}\n\n${conversationText}\n\nMindGate:`;
     return this.generateRawResponse(fullPrompt);

@@ -5,7 +5,7 @@
 }
 
 body {
-  background: #ffffff;
+  background: transparent;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }

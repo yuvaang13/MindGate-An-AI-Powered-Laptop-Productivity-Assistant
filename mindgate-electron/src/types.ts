@@ -32,8 +32,8 @@ export interface UIThemeDimensions {
   overlayWidth: number;
   overlayHeight: number;
   chatCornerRadius: number;
-  overlayXOffset: number;
-  overlayYOffset: number;
+  overlayXOffset?: number;
+  overlayYOffset?: number;
 }
 
 export interface Configuration {

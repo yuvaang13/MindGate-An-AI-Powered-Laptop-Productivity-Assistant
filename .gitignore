@@ -38,5 +38,7 @@ xcuserdata/
 # Node.js/Electron
 node_modules/
 dist/
+dist-electron/
+release/
 *.js
 *.js.map

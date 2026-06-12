@@ -4,7 +4,7 @@ import { TakeoverView } from '../takeover/TakeoverView';
 import '../../styles/glassmorphism.css';
 
 export interface OverlayHandle {
-  resetChat: () => void;
+  resetChat: () => Promise<void>;
 }
 
 interface OverlayProps {
@@ -14,9 +14,11 @@ interface OverlayProps {
 
 type OverlayState = 'chat' | 'loading' | 'approved' | 'denied' | 'takeover';
 
+const AI_INIT_TIMEOUT_MS = 8000;
+const APPROVAL_DISPLAY_MS = 2500;
+
 export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ configuration, onClose }, ref) => {
   const [state, setState] = useState<OverlayState>('chat');
-  console.log('[Overlay] Render — state:', state);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [countdownSeconds, setCountdownSeconds] = useState(configuration.settings.justificationCountdownDuration);
@@ -28,10 +30,22 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   const [isRetrying, setIsRetrying] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const apiReadyRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const waitForMindgateAPI = async (maxWaitMs = 2000): Promise<boolean> => {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      if (window.mindgateAPI) {
+        apiReadyRef.current = true;
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return !!window.mindgateAPI;
   };
 
   const handleRetry = async () => {
@@ -53,41 +67,42 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   }, [messages]);
 
   const initChat = async () => {
-    console.log('[Overlay] initChat — starting');
-    if (!window.mindgateAPI) {
-      console.warn('[Overlay] mindgateAPI not available — using fallback');
-      setMessages([{ role: 'ai', content: "MindGate bridge not initialized. Please restart the app.", timestamp: Date.now() }]);
+    const apiReady = await waitForMindgateAPI();
+    if (!apiReady) {
+      setMessages([{
+        role: 'ai',
+        content: 'MindGate bridge not initialized. Please restart the app.',
+        timestamp: Date.now(),
+      }]);
       setAiReady(true);
       return;
     }
+
     try {
-      window.mindgateAPI.resetChat();
+      await window.mindgateAPI.resetChat();
     } catch (e) {
       console.warn('[Overlay] resetChat failed:', e);
     }
-    console.log('[Overlay] initChat — calling generateFirstMessage');
+
     let firstMessage = '';
     try {
       const timeoutPromise = new Promise<string>((_, reject) => {
-        setTimeout(() => reject(new Error('AI response timed out after 5s')), 5000);
+        setTimeout(() => reject(new Error('AI response timed out')), AI_INIT_TIMEOUT_MS);
       });
       firstMessage = await Promise.race([
         window.mindgateAPI.generateFirstMessage(),
-        timeoutPromise
+        timeoutPromise,
       ]);
-      console.log('[Overlay] initChat — generateFirstMessage returned:', firstMessage.slice(0, 80));
-    } catch (e) {
-      console.warn('[Overlay] initChat — using fallback message, error:', e);
+    } catch {
       firstMessage = "I see you're trying to access a distracting website. Why do you need to be here?";
     }
+
     setMessages([{ role: 'ai', content: firstMessage, timestamp: Date.now() }]);
     setAiReady(true);
-    console.log('[Overlay] initChat — done, aiReady=true');
   };
 
   useImperativeHandle(ref, () => ({
     resetChat: async () => {
-      console.log('[Overlay] resetChat called');
       setState('chat');
       setMessages([]);
       setUserInput('');
@@ -99,18 +114,17 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
       setIsRetrying(false);
       setCountdownSeconds(configuration.settings.justificationCountdownDuration);
       await initChat();
-    }
+    },
   }), [configuration]);
 
   useEffect(() => {
-    console.log('[Overlay] Mounted — starting initial chat');
-    initChat();
+    void initChat();
   }, []);
 
   useEffect(() => {
     if (state === 'chat' && aiReady) {
       const timer = setInterval(() => {
-        setCountdownSeconds(s => s - 1);
+        setCountdownSeconds((s) => s - 1);
       }, 1000);
       return () => clearInterval(timer);
     }
@@ -118,14 +132,14 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
   useEffect(() => {
     if (state === 'chat' && aiReady && countdownSeconds <= 0) {
-      handleTimeout();
+      void handleTimeout();
     }
   }, [countdownSeconds, state, aiReady]);
 
   useEffect(() => {
     if (state === 'approved' && remainingAccessTime !== null) {
       const timer = setInterval(() => {
-        setRemainingAccessTime(t => t !== null ? Math.max(0, t - 1) : null);
+        setRemainingAccessTime((t) => (t !== null ? Math.max(0, t - 1) : null));
       }, 1000);
       return () => clearInterval(timer);
     }
@@ -133,7 +147,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
   const handleTimeout = async () => {
     setIsInputDisabled(true);
-    setMessages(prev => [...prev, { role: 'ai', content: "Time's up! Access denied.", timestamp: Date.now() }]);
+    setMessages((prev) => [...prev, { role: 'ai', content: "Time's up! Access denied.", timestamp: Date.now() }]);
     await window.mindgateAPI.closeDistraction();
     setTimeout(() => {
       setState('takeover');
@@ -145,9 +159,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
     const input = userInput.trim();
     setUserInput('');
-
-    setMessages(prev => [...prev, { role: 'user', content: input, timestamp: Date.now() }]);
-
+    setMessages((prev) => [...prev, { role: 'user', content: input, timestamp: Date.now() }]);
     setIsInputDisabled(true);
     setState('loading');
 
@@ -155,16 +167,17 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
       const result = await window.mindgateAPI.sendChatMessage(input);
 
       if (result.message) {
-        setMessages(prev => [...prev, { role: 'ai', content: result.message, timestamp: Date.now() }]);
+        setMessages((prev) => [...prev, { role: 'ai', content: result.message, timestamp: Date.now() }]);
       }
 
       if (result.isApproved === true) {
         const mins = result.durationMinutes || 10;
+        const durationSeconds = mins * 60;
         setAiResponse(`Access approved for ${mins} minutes. Stay focused.`);
         setState('approved');
-        window.mindgateAPI.grantAccess(mins * 60);
-        setRemainingAccessTime(mins * 60);
-        setTimeout(() => onClose(), 2500);
+        await window.mindgateAPI.grantAccess(durationSeconds);
+        setRemainingAccessTime(durationSeconds);
+        setTimeout(() => onClose(), APPROVAL_DISPLAY_MS);
       } else if (result.isApproved === false) {
         setAiResponse('Access denied. Stay focused on your work.');
         setState('denied');
@@ -175,7 +188,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
         setIsInputDisabled(false);
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'ai', content: 'Error communicating with AI.', timestamp: Date.now() }]);
+      setMessages((prev) => [...prev, { role: 'ai', content: 'Error communicating with AI.', timestamp: Date.now() }]);
       setState('chat');
       setIsInputDisabled(false);
     }
@@ -194,7 +207,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
       flex: 1,
       display: 'flex',
       flexDirection: 'column',
-      background: '#ffffff',
+      background: 'transparent',
       borderRadius: 'var(--glass-radius-md)',
       overflow: 'hidden',
       minHeight: 0,
@@ -208,7 +221,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
         padding: '8px',
         minHeight: 0,
       }}>
-        {messages && messages.length > 0 ? messages.map((msg, i) => (
+        {messages.length > 0 ? messages.map((msg, i) => (
           <div key={i} className={msg?.role === 'user' ? 'glass-bubble-user' : 'glass-bubble-ai-light'}>
             {msg?.content ?? ''}
           </div>
@@ -221,7 +234,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
               {chatError}
             </div>
             <button
-              onClick={handleRetry}
+              onClick={() => void handleRetry()}
               disabled={isRetrying}
               className="glass-btn"
               style={{ padding: '8px 20px', fontSize: '13px' }}
@@ -231,7 +244,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '20px' }}>
-            <div className="glass-dot" style={{ width: '10px', height: '10px' }} />
+            <div className="glass-dot glass-dot-active" style={{ width: '10px', height: '10px' }} />
             <div style={{ color: '#1c1c1e', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
               Initializing AI...
             </div>
@@ -247,13 +260,12 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
       <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', padding: '8px' }}>
         <textarea
-          ref={inputRef}
           value={userInput}
-          onChange={e => setUserInput(e.target.value)}
-          onKeyDown={e => {
+          onChange={(e) => setUserInput(e.target.value)}
+          onKeyDown={(e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
               e.preventDefault();
-              handleSubmit();
+              void handleSubmit();
             }
           }}
           placeholder="Explain why you need access..."
@@ -263,7 +275,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
           style={{ resize: 'none', flex: 1, minHeight: '36px', maxHeight: '60px', fontSize: '13px' }}
         />
         <button
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
           disabled={!userInput.trim() || isInputDisabled || !!chatError}
           className="glass-btn"
           style={{ height: '36px', padding: '0 14px', flexShrink: 0, fontSize: '13px' }}
@@ -296,7 +308,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   const renderTakeover = () => (
     <TakeoverView
       configuration={configuration}
-      onDismiss={() => { onClose(); }}
+      onDismiss={onClose}
     />
   );
 
@@ -325,8 +337,8 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
         gap: '10px',
         top: 0,
         left: 0,
-        width: '280px',
-        height: '280px',
+        width: `${configuration.theme.dimensions.overlayWidth}px`,
+        height: `${configuration.theme.dimensions.overlayHeight}px`,
         padding: '18px',
         pointerEvents: 'auto',
         zIndex: 2147483647,

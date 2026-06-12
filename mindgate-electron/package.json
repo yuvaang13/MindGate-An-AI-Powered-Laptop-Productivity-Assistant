@@ -2,16 +2,17 @@
   "name": "mindgate-electron",
   "version": "1.0.0",
   "description": "Cross-platform MindGate productivity app",
-  "main": "main.js",
+  "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
-    "dev:main": "wait-on http://localhost:3000 && electron .",
+    "dev": "tsc -p tsconfig.main.json && concurrently \"npm run dev:renderer\" \"npm run dev:main:watch\" \"npm run dev:electron\"",
+    "dev:main:watch": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
+    "dev:electron": "wait-on http://localhost:3000 dist-electron/main.js && electron .",
     "dev:renderer": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc -p tsconfig.main.json && vite build",
     "preview": "vite preview",
     "dist": "npm run build && electron-builder",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit",
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
@@ -22,6 +23,8 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^4.0.0",
     "concurrently": "^9.0.0",
     "electron": "42.3.3",
@@ -33,8 +36,14 @@
   "build": {
     "appId": "com.mindgate.electron",
     "productName": "MindGate",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
     "mac": {
       "category": "public.app-category.productivity",

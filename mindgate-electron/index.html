@@ -27,7 +27,7 @@
       #mg-error .detail { color: #666; font-size: 12px; }
     </style>
   </head>
-  <body style="margin: 0; padding: 0; background: #ffffff; overflow: hidden;">
+  <body style="margin: 0; padding: 0; background: transparent; overflow: hidden;">
     <div id="mg-splash">
       <div class="dot"></div>
       <div class="title">MindGate</div>
@@ -67,7 +67,6 @@
         }
       });
       observer.observe(document.getElementById('root'), { childList: true });
-      setTimeout(() => { splash.classList.add('hidden'); }, 8000);
     </script>
     <script type="module" src="/src/index.tsx"></script>
   </body>

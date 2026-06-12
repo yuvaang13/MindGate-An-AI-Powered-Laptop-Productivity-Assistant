@@ -1,20 +1,24 @@
 import { app, BrowserWindow, ipcMain, Tray, screen, Menu, nativeImage, systemPreferences, shell } from 'electron';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { appendFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { join } from 'path';
+import { appendFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { ConfigurationService } from './src/services/configurationService.js';
 import { DecisionEngine } from './src/services/decisionEngine.js';
 import { WorkspaceMonitor } from './src/services/workspaceMonitor.js';
 import { WindowManager } from './src/services/windowManager.js';
 import { SystemMonitor } from './src/services/platformWrapper.js';
+import { getPreloadPath, getRendererIndexPath, getTrayIconPath } from './src/utils/appPaths.js';
 import type { ActiveWindowInfo, Configuration } from './src/types.js';
 
+const execAsync = promisify(exec);
+
 const logPath = join(tmpdir(), 'mindgate-debug.log');
-try { writeFileSync(logPath, ''); } catch {}
+try { writeFileSync(logPath, ''); } catch { /* ignore */ }
 function dbg(...args: unknown[]) {
-  const msg = `[${new Date().toISOString()}] ${args.map(a => String(a)).join(' ')}\n`;
-  try { appendFileSync(logPath, msg); } catch {}
+  const msg = `[${new Date().toISOString()}] ${args.map((a) => String(a)).join(' ')}\n`;
+  try { appendFileSync(logPath, msg); } catch { /* ignore */ }
   console.log(...args);
 }
 dbg('MindGate starting, logPath:', logPath);
@@ -44,8 +48,6 @@ function patchConsole() {
 }
 patchConsole();
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 let configurationService: ConfigurationService;
 let decisionEngine: DecisionEngine;
 let workspaceMonitor: WorkspaceMonitor;
@@ -53,6 +55,8 @@ let windowManager: WindowManager;
 let systemMonitor: SystemMonitor;
 let tray: Tray | null = null;
 let overlayWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
+let ollamaStatusInterval: NodeJS.Timeout | null = null;
 
 let isOllamaConnected: boolean = false;
 let hasRequestedPermissions: boolean = false;
@@ -64,24 +68,45 @@ async function checkAccessibilityPermissions(): Promise<boolean> {
 
 async function requestAccessibilityPermissionsIfNeeded(): Promise<boolean> {
   if (process.platform !== 'darwin') return true;
-  
+
   if (hasRequestedPermissions) {
     return systemPreferences.isTrustedAccessibilityClient(false);
   }
-  
+
   try {
     systemPreferences.isTrustedAccessibilityClient(true);
   } catch (e) {
     console.error('Failed to request accessibility permission:', e);
   }
   hasRequestedPermissions = true;
-  
+
   const granted = systemPreferences.isTrustedAccessibilityClient(false);
   if (granted) {
     systemMonitor.setPermissionsGranted();
     tray?.setToolTip('MindGate Productivity Assistant');
   }
   return granted;
+}
+
+function getOverlayPosition(config: Configuration): { x: number; y: number } {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { bounds } = primaryDisplay;
+  const width = config.theme.dimensions.overlayWidth;
+  const height = config.theme.dimensions.overlayHeight;
+  const xOffset = config.theme.dimensions.overlayXOffset;
+  const yOffset = config.theme.dimensions.overlayYOffset;
+
+  if (xOffset !== undefined && yOffset !== undefined) {
+    return {
+      x: Math.round(bounds.x + xOffset),
+      y: Math.round(bounds.y + yOffset),
+    };
+  }
+
+  return {
+    x: Math.round(bounds.x + (bounds.width - width) / 2),
+    y: Math.round(bounds.y + (bounds.height - height) / 2),
+  };
 }
 
 async function initialize() {
@@ -92,7 +117,7 @@ async function initialize() {
   await systemMonitor.initialize();
 
   decisionEngine = new DecisionEngine(configurationService.getConfiguration());
-  windowManager = new WindowManager(configurationService.getConfiguration());
+  windowManager = new WindowManager(configurationService.getConfiguration(), systemMonitor);
 
   workspaceMonitor = new WorkspaceMonitor(
     configurationService.getConfiguration(),
@@ -118,17 +143,16 @@ async function initialize() {
 }
 
 async function createWindows(): Promise<void> {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { bounds } = primaryDisplay;
   const config = configurationService.getConfiguration();
+  const { x, y } = getOverlayPosition(config);
 
   overlayWindow = new BrowserWindow({
-    x: Math.round(bounds.x + config.theme.dimensions.overlayXOffset),
-    y: Math.round(bounds.y + config.theme.dimensions.overlayYOffset),
+    x,
+    y,
     width: config.theme.dimensions.overlayWidth,
     height: config.theme.dimensions.overlayHeight,
-    transparent: false,
-    backgroundColor: '#ffffff',
+    transparent: true,
+    backgroundColor: '#00000000',
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -141,11 +165,16 @@ async function createWindows(): Promise<void> {
     maximizable: false,
     show: false,
     webPreferences: {
-      preload: join(__dirname, 'preload.js'),
+      preload: getPreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false
-    }
+      webSecurity: false,
+    },
+  });
+
+  overlayWindow.on('close', (event) => {
+    event.preventDefault();
+    overlayWindow?.hide();
   });
 
   windowManager.setOverlayWindow(overlayWindow);
@@ -165,7 +194,7 @@ async function createWindows(): Promise<void> {
   if (process.env.VITE_DEV_SERVER_URL) {
     overlayWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    overlayWindow.loadFile(join(__dirname, 'dist/index.html'));
+    overlayWindow.loadFile(getRendererIndexPath());
   }
 
   try {
@@ -173,6 +202,39 @@ async function createWindows(): Promise<void> {
   } catch (e) {
     console.error('[Main] Overlay window load failed:', e);
   }
+}
+
+function openSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  settingsWindow = new BrowserWindow({
+    parent: overlayWindow ?? undefined,
+    modal: !!overlayWindow,
+    x: Math.round(primaryDisplay.bounds.x + primaryDisplay.bounds.width - 640),
+    y: Math.round(primaryDisplay.bounds.y + 20),
+    width: 640,
+    height: 800,
+    webPreferences: {
+      preload: getPreloadPath(),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    settingsWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}?settings=true`);
+  } else {
+    settingsWindow.loadFile(getRendererIndexPath(), { query: { settings: 'true' } });
+  }
+  settingsWindow.show();
 }
 
 function setupIPC() {
@@ -221,7 +283,7 @@ function setupIPC() {
     if (!connected) {
       return {
         isApproved: false,
-        message: 'Ollama service unavailable. Please start Ollama to use MindGate.'
+        message: 'Ollama service unavailable. Please start Ollama to use MindGate.',
       };
     }
     return await decisionEngine.evaluateRequest(userInput);
@@ -246,31 +308,11 @@ function setupIPC() {
   });
 
   ipcMain.handle('close-distraction', async () => {
-    const targetApp = windowManager.getTargetApp();
-    if (targetApp) {
-      await windowManager.closeDistraction(targetApp);
-    }
+    await windowManager.closeDistraction(windowManager.getTargetApp());
   });
 
   ipcMain.handle('show-settings', async () => {
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const settingsWindow = new BrowserWindow({
-      x: Math.round(primaryDisplay.bounds.x + primaryDisplay.bounds.width - 640),
-      y: Math.round(primaryDisplay.bounds.y + 20),
-      width: 640,
-      height: 800,
-      webPreferences: {
-        preload: join(__dirname, 'preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false
-      }
-    });
-    if (process.env.VITE_DEV_SERVER_URL) {
-      settingsWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}?settings=true`);
-    } else {
-      settingsWindow.loadFile(join(__dirname, 'dist/index.html'), { hash: 'settings=true' });
-    }
-    settingsWindow.show();
+    openSettingsWindow();
     return true;
   });
 
@@ -279,6 +321,7 @@ function setupIPC() {
     decisionEngine.updateConfiguration(configurationService.getConfiguration());
     workspaceMonitor.updateConfiguration(configurationService.getConfiguration());
     windowManager.updateConfiguration(configurationService.getConfiguration());
+    return true;
   });
 
   ipcMain.handle('get-remaining-access-time', () => {
@@ -286,13 +329,7 @@ function setupIPC() {
   });
 
   ipcMain.handle('debug-show-overlay', async () => {
-    console.log('[Main] Debug: manually showing overlay');
     windowManager.showOverlay();
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      const [x, y] = overlayWindow.getPosition();
-      const [w, h] = overlayWindow.getSize();
-      console.log(`[Main] Debug: overlay at (${x},${y}) size ${w}x${h}, visible: ${overlayWindow.isVisible()}`);
-    }
     return true;
   });
 
@@ -306,17 +343,20 @@ function setupIPC() {
 
   ipcMain.handle('launch-app', async (_event, appName: string) => {
     try {
-      const appPath = join('/Applications', `${appName}.app`);
-      await shell.openPath(appPath);
+      if (process.platform === 'darwin') {
+        await shell.openPath(join('/Applications', `${appName}.app`));
+      } else if (process.platform === 'win32') {
+        await execAsync(`start "" "${appName.replace(/"/g, '')}"`, { shell: 'cmd.exe' });
+      } else {
+        const safeName = appName.replace(/"/g, '');
+        await execAsync(`xdg-open "${safeName}" 2>/dev/null || gtk-launch ${safeName.toLowerCase()} 2>/dev/null || ${safeName}`);
+      }
     } catch (err) {
       console.error('Failed to launch app:', err);
-      try {
-        await shell.openExternal('https://www.google.com');
-      } catch {}
     }
   });
 
-  setInterval(async () => {
+  ollamaStatusInterval = setInterval(async () => {
     const connected = await decisionEngine.checkOllamaConnection();
     if (connected !== isOllamaConnected) {
       isOllamaConnected = connected;
@@ -338,11 +378,8 @@ function setupEventHandlers() {
   workspaceMonitor.onDistractionDetected = async (activeWindow: ActiveWindowInfo) => {
     try {
       dbg('Distraction detected:', activeWindow.processName, activeWindow.windowTitle);
-      dbg('overlayWindow exists:', !!overlayWindow, 'destroyed:', overlayWindow?.isDestroyed(), 'visible:', overlayWindow?.isVisible());
       decisionEngine.setCurrentApp(activeWindow);
       windowManager.setTargetWindow(activeWindow);
-
-      console.log('[Main] Calling showOverlay — overlayWindow exists:', !!overlayWindow);
       windowManager.showOverlay();
     } catch (e) {
       console.error('[Main] Error in onDistractionDetected:', e);
@@ -350,41 +387,25 @@ function setupEventHandlers() {
   };
 
   workspaceMonitor.onClearPrompt = () => {
-    console.log('Clear prompt triggered');
     windowManager.hideOverlay();
   };
 
   decisionEngine.onAccessExpired = () => {
-    console.log('Access expired');
-    const storedTargetApp = windowManager.getTargetApp();
-    if (storedTargetApp) {
-      setTimeout(() => {
-        workspaceMonitor.onDistractionDetected?.(storedTargetApp);
-      }, 100);
-    }
+    void workspaceMonitor.triggerCheckForCurrentWindow();
   };
 
   workspaceMonitor.startEventDrivenMonitoring();
 }
 
-function createTrayIcon(): Electron.NativeImage {
-  const iconPath = join(mkdtempSync(join(tmpdir(), 'mindgate-icon-')), 'icon.svg');
-  writeFileSync(iconPath, `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
-  <circle cx="11" cy="9" r="6.5" fill="none" stroke="#000" stroke-width="1.1"/>
-  <path d="M7 8 Q9.5 6 11 8 Q12.5 6 15 8" fill="none" stroke="#000" stroke-width="0.7"/>
-  <path d="M7 9.5 Q9.5 7.5 11 9.5 Q12.5 7.5 15 9.5" fill="none" stroke="#000" stroke-width="0.7"/>
-  <path d="M6.5 15 Q11 17 15.5 15" fill="none" stroke="#000" stroke-width="0.7"/>
-</svg>`);
-  const img = nativeImage.createFromPath(iconPath);
-  if (process.platform === 'darwin') {
-    img.setTemplateImage(true);
-  }
-  return img;
-}
-
 function createTray() {
   try {
-    const trayIcon = createTrayIcon();
+    const trayIcon = nativeImage.createFromPath(getTrayIconPath());
+    if (trayIcon.isEmpty()) {
+      throw new Error('Tray icon missing at ' + getTrayIconPath());
+    }
+    if (process.platform === 'darwin') {
+      trayIcon.setTemplateImage(true);
+    }
 
     tray = new Tray(trayIcon);
     tray.setToolTip('MindGate Productivity Assistant');
@@ -392,32 +413,13 @@ function createTray() {
     const contextMenu = Menu.buildFromTemplate([
       {
         label: 'Settings',
-        click: () => {
-          const primaryDisplay = screen.getPrimaryDisplay();
-          const settingsWin = new BrowserWindow({
-            x: Math.round(primaryDisplay.bounds.x + primaryDisplay.bounds.width - 640),
-            y: Math.round(primaryDisplay.bounds.y + 20),
-            width: 640,
-            height: 800,
-            webPreferences: {
-              preload: join(__dirname, 'preload.js'),
-              contextIsolation: true,
-              nodeIntegration: false
-            }
-          });
-          if (process.env.VITE_DEV_SERVER_URL) {
-            settingsWin.loadURL(`${process.env.VITE_DEV_SERVER_URL}?settings=true`);
-          } else {
-            settingsWin.loadFile(join(__dirname, 'dist/index.html'), { hash: 'settings=true' });
-          }
-          settingsWin.show();
-        }
+        click: () => openSettingsWindow(),
       },
       { type: 'separator' },
       {
         label: 'Quit MindGate',
-        click: () => app.quit()
-      }
+        click: () => app.quit(),
+      },
     ]);
 
     tray.setContextMenu(contextMenu);
@@ -434,16 +436,17 @@ app.whenReady().then(async () => {
 });
 
 app.on('will-quit', () => {
-  console.log('[Main] Cleaning up — stopping workspace observer');
+  if (ollamaStatusInterval) {
+    clearInterval(ollamaStatusInterval);
+    ollamaStatusInterval = null;
+  }
   workspaceMonitor?.stopMonitoring();
 });
 
 app.on('activate', () => {
-  // No-op: app runs in background
+  // Background app — no dock window
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Keep running in the tray on all platforms
 });

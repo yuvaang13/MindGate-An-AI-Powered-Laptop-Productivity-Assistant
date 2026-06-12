@@ -3,14 +3,6 @@ import { Configuration } from './types';
 import './styles/glassmorphism.css';
 import { LiquidGlassOverlay, OverlayHandle } from './components/overlay/Overlay';
 
-declare global {
-  interface Window {
-    __showOverlay?: () => void;
-    __hideOverlay?: () => void;
-    __resetOverlay?: () => void;
-  }
-}
-
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -26,10 +18,10 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     if (this.state.hasError) {
       return (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '280px', height: '280px',
-          background: 'rgba(255,255,255,0.9)', borderRadius: '24px',
+          position: 'fixed', inset: 0,
+          background: 'rgba(255,255,255,0.92)', borderRadius: '24px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#1c1c1e', fontSize: '14px', padding: '20px', textAlign: 'center',
+          color: '#1c1c1e', fontSize: '16px', padding: '24px', textAlign: 'center',
           zIndex: 2147483647,
         }}>
           MindGate encountered an error. Restart the app.
@@ -56,14 +48,14 @@ const defaultConfig: Configuration = {
   theme: {
     colors: { primary: '#FFF', secondary: '#FFFFFFB3', accent: '#FFFFFF99', background: '#000', surface: '#000', text: '#FFF', textSecondary: '#FFFFFFB3', error: '#FF453A', warning: '#FF9F0A' },
     animation: { transitionDuration: 0.3, overlayFadeDuration: 0.3 },
-    dimensions: { overlayWidth: 280, overlayHeight: 280, chatCornerRadius: 24, overlayXOffset: 24, overlayYOffset: 24 },
+    dimensions: { overlayWidth: 280, overlayHeight: 280, chatCornerRadius: 24 },
   },
 };
 
 const permissionMessages = [
   'MindGate needs Accessibility access to detect your active window and help you stay focused.',
   'Please grant permission in System Settings > Privacy & Security > Accessibility.',
-  'After granting, restart MindGate for full functionality.'
+  'After granting, restart MindGate for full functionality.',
 ];
 
 const App: React.FC = () => {
@@ -73,75 +65,51 @@ const App: React.FC = () => {
   const overlayRef = useRef<OverlayHandle>(null);
 
   useEffect(() => {
-    console.log('[App] Mounted — requesting configuration');
-    window.mindgateAPI.getConfiguration().then(cfg => {
-      console.log('[App] Configuration loaded');
-      setConfiguration(cfg);
-    }).catch(e => {
+    window.mindgateAPI.getConfiguration().then(setConfiguration).catch((e: unknown) => {
       console.error('[App] getConfiguration failed:', e);
     });
 
-    window.mindgateAPI.checkAccessibilityPermission().then(granted => {
-      console.log('[App] Accessibility permission:', granted);
-      setHasPermission(granted);
-    });
+    window.mindgateAPI.checkAccessibilityPermission().then(setHasPermission);
   }, []);
 
   const pendingShowRef = useRef(false);
 
   useEffect(() => {
-    console.log('[App] Registering globals');
-
     window.__showOverlay = () => {
-      try {
-        if (overlayRef.current) {
-          console.log('[App] __showOverlay calling resetChat');
-          overlayRef.current.resetChat();
-        } else {
-          console.log('[App] __showOverlay — overlayRef not ready, queuing');
-          pendingShowRef.current = true;
-        }
-      } catch (e) {
-        console.error('[App] __showOverlay error:', e);
-      }
-    };
-    window.__hideOverlay = () => {
-      console.log('[App] __hideOverlay called');
-    };
-    window.__resetOverlay = () => {
-      try {
-        overlayRef.current?.resetChat();
-      } catch (e) {
-        console.error('[App] __resetOverlay error:', e);
+      if (overlayRef.current) {
+        void overlayRef.current.resetChat();
+      } else {
+        pendingShowRef.current = true;
       }
     };
 
-    try {
-      window.mindgateAPI.onOllamaStatusChanged((connected) => {
-        console.log('[App] Ollama status changed:', connected);
-        setIsOllamaConnected(connected);
-      });
-    } catch (e) {
-      console.error('[App] Failed to register listeners:', e);
-    }
+    window.__hideOverlay = () => {
+      // Window visibility is controlled by the main process.
+    };
+
+    window.__resetOverlay = () => {
+      void overlayRef.current?.resetChat();
+    };
+
+    const unsubscribe = window.mindgateAPI.onOllamaStatusChanged(setIsOllamaConnected);
 
     return () => {
       delete window.__showOverlay;
       delete window.__hideOverlay;
       delete window.__resetOverlay;
+      unsubscribe();
     };
   }, []);
 
   useEffect(() => {
     if (pendingShowRef.current && overlayRef.current) {
-      console.log('[App] overlayRef now available, flushing pending show');
       pendingShowRef.current = false;
-      overlayRef.current.resetChat();
+      void overlayRef.current.resetChat();
     }
   });
 
   const handleClose = () => {
-    window.mindgateAPI.hideOverlay();
+    void window.mindgateAPI.hideOverlay();
   };
 
   const cfg = configuration ?? defaultConfig;
