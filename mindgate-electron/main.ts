@@ -57,6 +57,45 @@ let ollamaStatusInterval: NodeJS.Timeout | null = null;
 let isOllamaConnected: boolean = false;
 let hasRequestedPermissions: boolean = false;
 
+function getDefaultConfiguration(): Configuration {
+  return {
+    settings: {
+      distractingApps: [],
+      restrictedKeywords: [],
+      monitoredBrowsers: ['Safari', 'Google Chrome', 'Microsoft Edge', 'Firefox', 'Brave'],
+      ollamaURL: 'http://localhost:11434/api/generate',
+      ollamaModel: 'gemma3:1b',
+      accessDurations: [300, 600, 900],
+      accessDurationLabels: ['5 Mins', '10 Mins', '15 Mins'],
+      productiveTasks: [],
+      productiveApps: [],
+      justificationCountdownDuration: 20,
+    },
+    theme: {
+      colors: {
+        primary: '#FFFFFF',
+        secondary: '#FFFFFFB3',
+        accent: '#FFFFFF99',
+        background: '#000000',
+        surface: '#000000',
+        text: '#FFFFFF',
+        textSecondary: '#FFFFFFB3',
+        error: '#FF453A',
+        warning: '#FF9F0A',
+      },
+      animation: {
+        transitionDuration: 0.3,
+        overlayFadeDuration: 0.3,
+      },
+      dimensions: {
+        overlayWidth: 280,
+        overlayHeight: 280,
+        chatCornerRadius: 24,
+      },
+    },
+  };
+}
+
 async function checkAccessibilityPermissions(): Promise<boolean> {
   if (process.platform !== 'darwin') return true;
   return systemPreferences.isTrustedAccessibilityClient(false);
@@ -121,8 +160,8 @@ async function initialize() {
   );
   workspaceMonitor.setDecisionEngine(decisionEngine);
 
-  await createWindows();
   setupIPC();
+  await createWindows();
   setupEventHandlers();
   createTray();
 
@@ -316,8 +355,8 @@ function setupIPC() {
 
   ipcMain.handle('get-configuration', () => {
     if (!configurationService) {
-      console.error('[Main] get-configuration called before configurationService initialized');
-      throw new Error('Configuration service not initialized');
+      console.warn('[Main] get-configuration called before configurationService initialized, returning defaults');
+      return getDefaultConfiguration();
     }
     return configurationService.getConfiguration();
   });
