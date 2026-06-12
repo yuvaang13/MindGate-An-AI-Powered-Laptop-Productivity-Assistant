@@ -16,6 +16,10 @@ export function getRendererIndexPath(): string {
 }
 
 export function getTrayIconPath(): string {
+  // Use PNG for tray icon - SVG may not work reliably on all platforms
+  if (process.platform === 'darwin') {
+    return join(getAppRoot(), 'assets', 'tray-icon-mac.png');
+  }
   return join(getAppRoot(), 'assets', 'tray-icon.svg');
 }
 
