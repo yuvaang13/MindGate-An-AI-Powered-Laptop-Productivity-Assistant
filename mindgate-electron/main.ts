@@ -281,7 +281,7 @@ function setupIPC() {
       const [x, y] = overlayWindow.getPosition();
       const [w, h] = overlayWindow.getSize();
       console.log(`[Main] Debug: overlay at (${x},${y}) size ${w}x${h}, visible: ${overlayWindow.isVisible()}`);
-      overlayWindow.webContents.send('show-overlay');
+      overlayWindow.webContents.executeJavaScript('window.__showOverlay && window.__showOverlay()').catch(() => {});
     }
     return true;
   });
@@ -333,11 +333,6 @@ function setupEventHandlers() {
 
       console.log('[Main] Calling showOverlay — overlayWindow exists:', !!overlayWindow);
       windowManager.showOverlay();
-      console.log('[Main] Sending show-overlay to renderer');
-      if (overlayWindow && !overlayWindow.isDestroyed()) {
-        overlayWindow.webContents.send('show-overlay');
-        overlayWindow.webContents.executeJavaScript('window.__showOverlay && window.__showOverlay()').catch(() => {});
-      }
     } catch (e) {
       console.error('[Main] Error in onDistractionDetected:', e);
     }
@@ -346,9 +341,6 @@ function setupEventHandlers() {
   workspaceMonitor.onClearPrompt = () => {
     console.log('Clear prompt triggered');
     windowManager.hideOverlay();
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send('hide-overlay');
-    }
   };
 
   decisionEngine.onAccessExpired = () => {

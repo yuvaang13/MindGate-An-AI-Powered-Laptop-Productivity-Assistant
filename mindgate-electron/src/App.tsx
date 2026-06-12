@@ -1,7 +1,7 @@
-import React, { useEffect, useState, ErrorInfo } from 'react';
+import React, { useEffect, useState, useRef, ErrorInfo } from 'react';
 import { Configuration } from './types';
 import './styles/glassmorphism.css';
-import { LiquidGlassOverlay } from './components/overlay/Overlay';
+import { LiquidGlassOverlay, OverlayHandle } from './components/overlay/Overlay';
 
 declare global {
   interface Window {
@@ -67,9 +67,9 @@ const permissionMessages = [
 
 const App: React.FC = () => {
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
-  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [isOllamaConnected, setIsOllamaConnected] = useState(true);
   const [hasPermission, setHasPermission] = useState(true);
+  const overlayRef = useRef<OverlayHandle>(null);
 
   useEffect(() => {
     console.log('[App] Mounted — requesting configuration');
@@ -87,28 +87,17 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    console.log('[App] Registering IPC listeners and globals');
+    console.log('[App] Registering globals');
 
     window.__showOverlay = () => {
       console.log('[App] __showOverlay called');
-      setIsOverlayVisible(true);
+      overlayRef.current?.resetChat();
     };
     window.__hideOverlay = () => {
       console.log('[App] __hideOverlay called');
-      setIsOverlayVisible(false);
     };
 
     try {
-      window.mindgateAPI.onShowOverlay(() => {
-        console.log('[App] show-overlay callback fired');
-        setIsOverlayVisible(true);
-      });
-
-      window.mindgateAPI.onHideOverlay(() => {
-        console.log('[App] hide-overlay callback fired');
-        setIsOverlayVisible(false);
-      });
-
       window.mindgateAPI.onOllamaStatusChanged((connected) => {
         console.log('[App] Ollama status changed:', connected);
         setIsOllamaConnected(connected);
@@ -117,20 +106,13 @@ const App: React.FC = () => {
       console.error('[App] Failed to register listeners:', e);
     }
 
-    const autoShow = setTimeout(() => {
-      console.log('[App] Auto-showing overlay (backup timer)');
-      setIsOverlayVisible(true);
-    }, 8000);
-
     return () => {
-      clearTimeout(autoShow);
       delete window.__showOverlay;
       delete window.__hideOverlay;
     };
   }, []);
 
   const handleClose = () => {
-    setIsOverlayVisible(false);
     window.mindgateAPI.hideOverlay();
   };
 
@@ -173,7 +155,7 @@ const App: React.FC = () => {
         </div>
       )}
       <LiquidGlassOverlay
-        visible={isOverlayVisible}
+        ref={overlayRef}
         configuration={cfg}
         onClose={handleClose}
       />

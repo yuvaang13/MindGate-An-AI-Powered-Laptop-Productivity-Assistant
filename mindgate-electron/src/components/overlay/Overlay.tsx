@@ -1,19 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Configuration, ChatMessage } from '../../types';
 import { TakeoverView } from '../takeover/TakeoverView';
 import '../../styles/glassmorphism.css';
 
+export interface OverlayHandle {
+  resetChat: () => void;
+}
+
 interface OverlayProps {
-  visible: boolean;
   configuration: Configuration;
   onClose: () => void;
 }
 
 type OverlayState = 'chat' | 'loading' | 'approved' | 'denied' | 'takeover';
 
-export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configuration, onClose }) => {
+export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ configuration, onClose }, ref) => {
   const [state, setState] = useState<OverlayState>('chat');
-  console.log('[Overlay] Render — visible:', visible, 'state:', state);
+  console.log('[Overlay] Render — state:', state);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [countdownSeconds, setCountdownSeconds] = useState(configuration.settings.justificationCountdownDuration);
@@ -49,22 +52,6 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    if (visible) {
-      setState('chat');
-      setMessages([]);
-      setUserInput('');
-      setAiResponse('');
-      setRemainingAccessTime(null);
-      setIsInputDisabled(false);
-      setAiReady(false);
-      setChatError(null);
-      setIsRetrying(false);
-      setCountdownSeconds(configuration.settings.justificationCountdownDuration);
-      initChat();
-    }
-  }, [visible]);
-
   const initChat = async () => {
     console.log('[Overlay] initChat — starting');
     window.mindgateAPI.resetChat();
@@ -87,6 +74,28 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
     setAiReady(true);
     console.log('[Overlay] initChat — done, aiReady=true');
   };
+
+  useImperativeHandle(ref, () => ({
+    resetChat: async () => {
+      console.log('[Overlay] resetChat called');
+      setState('chat');
+      setMessages([]);
+      setUserInput('');
+      setAiResponse('');
+      setRemainingAccessTime(null);
+      setIsInputDisabled(false);
+      setAiReady(false);
+      setChatError(null);
+      setIsRetrying(false);
+      setCountdownSeconds(configuration.settings.justificationCountdownDuration);
+      await initChat();
+    }
+  }), [configuration]);
+
+  useEffect(() => {
+    console.log('[Overlay] Mounted — starting initial chat');
+    initChat();
+  }, []);
 
   useEffect(() => {
     if (state === 'chat' && aiReady) {
@@ -169,8 +178,6 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
     if (ratio > 0.25) return { color: 'rgba(255, 69, 58, 0.8)' };
     return { color: 'rgba(255, 59, 48, 1)' };
   };
-
-  if (!visible) return null;
 
   const renderChat = () => (
     <div style={{
@@ -339,4 +346,6 @@ export const LiquidGlassOverlay: React.FC<OverlayProps> = ({ visible, configurat
       </div>
     </div>
   );
-};
+});
+
+LiquidGlassOverlay.displayName = 'LiquidGlassOverlay';
