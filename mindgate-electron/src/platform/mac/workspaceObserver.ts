@@ -24,6 +24,9 @@ export class WorkspaceObserver extends EventEmitter {
     if (this.process) return;
     this.stopped = false;
     this.spawnWorker();
+    
+    // Ensure cleanup on process exit
+    process.on('exit', () => this.stop());
   }
 
   // ── AppleScript worker ─────────────────────────────────

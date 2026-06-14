@@ -101,7 +101,7 @@ if ($process) {
     }
   }
 
-  async getActiveBrowserURL(_exeName: string): Promise<string | null> {
+  async getActiveBrowserURL(_identifier: string): Promise<string | null> {
     try {
       const script = `
 Add-Type -AssemblyName System.Windows.Forms
@@ -148,6 +148,4 @@ $hwnd = [Win32]::GetForegroundWindow()
       return false;
     }
   }
-
-  }
-
+}

@@ -36,6 +36,7 @@
   "build": {
     "appId": "com.mindgate.electron",
     "productName": "MindGate",
+    "icon": "assets/icon",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",

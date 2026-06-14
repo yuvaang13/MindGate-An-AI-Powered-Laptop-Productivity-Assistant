@@ -21,6 +21,16 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const handleDurationChange = (index: number, value: string) => {
+    const minutes = parseInt(value, 10) || 0;
+    // Only allow valid access durations (5, 10, 15 minutes in seconds)
+    const validDurations = [5, 10, 15];
+    const clampedMinutes = validDurations.includes(minutes) ? minutes : 10;
+    const newDurations = [...settings.accessDurations];
+    newDurations[index] = clampedMinutes * 60;
+    setSettings({ ...settings, accessDurations: newDurations });
+  };
+
   const handleSave = async () => {
     setSaveMessage(null);
     setSaveError(null);
@@ -147,12 +157,9 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
               <input
                 type="number"
                 value={settings.accessDurations[index] / 60}
-                onChange={(e) => {
-                  const minutes = parseInt(e.target.value, 10) || 0;
-                  const newDurations = [...settings.accessDurations];
-                  newDurations[index] = minutes * 60;
-                  setSettings({ ...settings, accessDurations: newDurations });
-                }}
+                onChange={(e) => handleDurationChange(index, e.target.value)}
+                min={5}
+                max={15}
                 style={{
                   width: 60,
                   background: '#2a2a2a',

@@ -149,7 +149,11 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
     setIsInputDisabled(true);
     setMessages((prev) => [...prev, { role: 'ai', content: "Time's up! Access denied.", timestamp: Date.now() }]);
     if (window.mindgateAPI) {
-      await window.mindgateAPI.closeDistraction();
+      try {
+        await window.mindgateAPI.closeDistraction();
+      } catch (err) {
+        console.error('[Overlay] closeDistraction failed on timeout:', err);
+      }
     }
     setTimeout(() => {
       setState('takeover');
@@ -177,13 +181,25 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
         const durationSeconds = mins * 60;
         setAiResponse(`Access approved for ${mins} minutes. Stay focused.`);
         setState('approved');
-        await window.mindgateAPI.grantAccess(durationSeconds);
+        if (window.mindgateAPI) {
+          try {
+            await window.mindgateAPI.grantAccess(durationSeconds);
+          } catch (err) {
+            console.error('[Overlay] grantAccess failed:', err);
+          }
+        }
         setRemainingAccessTime(durationSeconds);
         setTimeout(() => onClose(), APPROVAL_DISPLAY_MS);
       } else if (result.isApproved === false) {
         setAiResponse('Access denied. Stay focused on your work.');
         setState('denied');
-        await window.mindgateAPI.closeDistraction();
+        if (window.mindgateAPI) {
+          try {
+            await window.mindgateAPI.closeDistraction();
+          } catch (err) {
+            console.error('[Overlay] closeDistraction failed on denial:', err);
+          }
+        }
         setTimeout(() => setState('takeover'), 1500);
       } else {
         setState('chat');
