@@ -82,20 +82,40 @@ export class WindowManager {
     const height = this.configuration.theme.dimensions.overlayHeight ?? 280;
     const { x, y } = this.getOverlayPosition(width, height);
 
+    const waitForReady = () => {
+      return new Promise<void>((resolve) => {
+        const check = () => {
+          if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+            const contents = this.overlayWindow.webContents;
+            if (contents.isLoadingMainFrame()) {
+              setTimeout(check, 50);
+              return;
+            }
+            resolve();
+          } else {
+            resolve();
+          }
+        };
+        setTimeout(check, 100);
+      });
+    };
+
     this.overlayWindow?.setPosition(x, y);
     this.overlayWindow?.setSize(width, height);
-    this.overlayWindow?.show();
 
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.show();
       this.overlayWindow.focus();
       this.overlayWindow.moveTop();
       this.overlayWindow.setAlwaysOnTop(true);
       this.overlayWindow.setVisibleOnAllWorkspaces(false);
       this.overlayWindow.setFullScreenable(false);
 
-      this.overlayWindow.webContents
-        .executeJavaScript('window.__showOverlay?.()', true)
-        .catch((err) => console.warn('[WindowManager] __showOverlay call failed:', err));
+      waitForReady().then(() => {
+        this.overlayWindow?.webContents
+          .executeJavaScript('window.__showOverlay?.()', true)
+          .catch((err) => console.warn('[WindowManager] __showOverlay call failed:', err));
+      });
     }
   }
 

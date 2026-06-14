@@ -38,15 +38,16 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const waitForMindgateAPI = async (maxWaitMs = 2000): Promise<boolean> => {
+  const waitForMindgateAPI = async (maxWaitMs = 8000): Promise<boolean> => {
     const start = Date.now();
     while (Date.now() - start < maxWaitMs) {
       if (window.mindgateAPI) {
         apiReadyRef.current = true;
         return true;
       }
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
+    console.error('[Overlay] mindgateAPI not available after waiting. window object:', Object.keys(window).filter((k) => k.includes('mindgate')));
     return !!window.mindgateAPI;
   };
 
@@ -126,8 +127,12 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   }), [configuration]);
 
   useEffect(() => {
-    void initChat();
-  }, []);
+    // Small delay to ensure window.mindgateAPI is available after preload script runs
+    const timer = setTimeout(() => {
+      void initChat();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []); // Run once on mount
 
   useEffect(() => {
     if (state === 'chat' && aiReady && !isAiThinking) {
