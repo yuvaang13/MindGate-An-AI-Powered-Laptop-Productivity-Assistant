@@ -187,8 +187,8 @@ async function createWindows(): Promise<void> {
     y,
     width: config.theme.dimensions.overlayWidth,
     height: config.theme.dimensions.overlayHeight,
-    transparent: false,
-    backgroundColor: '#ffffff',
+    transparent: true,
+    backgroundColor: '#00000000',
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -206,13 +206,17 @@ async function createWindows(): Promise<void> {
       nodeIntegration: false,
       webSecurity: false,
     },
-});
+  });
 
   overlayWindow.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault();
       overlayWindow?.hide();
     }
+  });
+
+  overlayWindow.on('focus', () => {
+    dbg('[Main] overlayWindow focused');
   });
 
   windowManager.setOverlayWindow(overlayWindow);
@@ -511,6 +515,11 @@ app.on('will-quit', () => {
   }
   tray?.destroy();
   tray = null;
+  try {
+    app.exit(0);
+  } catch (e) {
+    dbg('[Main] app.exit failed:', e);
+  }
 });
 
 // Ensure Electron quits on SIGTERM/SIGINT for proper cleanup

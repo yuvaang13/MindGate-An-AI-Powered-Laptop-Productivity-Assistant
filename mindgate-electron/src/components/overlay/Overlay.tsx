@@ -28,8 +28,10 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   const [aiReady, setAiReady] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isAiThinking, setIsAiThinking] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const apiReadyRef = useRef(false);
 
   const scrollToBottom = () => {
@@ -99,6 +101,11 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
     setMessages([{ role: 'ai', content: firstMessage, timestamp: Date.now() }]);
     setAiReady(true);
+    setTimeout(() => {
+      if (inputRef.current && !isInputDisabled) {
+        inputRef.current.focus();
+      }
+    }, 100);
   };
 
   useImperativeHandle(ref, () => ({
@@ -112,6 +119,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
       setAiReady(false);
       setChatError(null);
       setIsRetrying(false);
+      setIsAiThinking(false);
       setCountdownSeconds(configuration?.settings?.justificationCountdownDuration ?? 20);
       await initChat();
     },
@@ -122,13 +130,13 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   }, []);
 
   useEffect(() => {
-    if (state === 'chat' && aiReady) {
+    if (state === 'chat' && aiReady && !isAiThinking) {
       const timer = setInterval(() => {
         setCountdownSeconds((s) => s - 1);
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [state, aiReady]);
+  }, [state, aiReady, isAiThinking]);
 
   useEffect(() => {
     if (state === 'chat' && aiReady && countdownSeconds <= 0) {
@@ -167,10 +175,12 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
     setUserInput('');
     setMessages((prev) => [...prev, { role: 'user', content: input, timestamp: Date.now() }]);
     setIsInputDisabled(true);
+    setIsAiThinking(true);
     setState('loading');
 
     try {
       const result = await window.mindgateAPI.sendChatMessage(input);
+      setIsAiThinking(false);
 
       if (result.message) {
         setMessages((prev) => [...prev, { role: 'ai', content: result.message, timestamp: Date.now() }]);
@@ -204,9 +214,16 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
       } else {
         setState('chat');
         setIsInputDisabled(false);
+        setTimeout(() => {
+          if (inputRef.current && !isInputDisabled) {
+            inputRef.current.focus();
+          }
+        }, 50);
       }
-    } catch {
-      setMessages((prev) => [...prev, { role: 'ai', content: 'Error communicating with AI.', timestamp: Date.now() }]);
+    } catch (e) {
+      setIsAiThinking(false);
+      const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+      setMessages((prev) => [...prev, { role: 'ai', content: `Error: ${errorMsg}. Please try again.`, timestamp: Date.now() }]);
       setState('chat');
       setIsInputDisabled(false);
     }
@@ -239,11 +256,21 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
         padding: '8px',
         minHeight: 0,
       }}>
-        {messages.length > 0 ? messages.map((msg, i) => (
-          <div key={i} className={msg?.role === 'user' ? 'glass-bubble-user' : 'glass-bubble-ai-light'}>
-            {msg?.content ?? ''}
-          </div>
-        )) : chatError ? (
+{messages.length > 0 ? (
+           <>
+             {messages.map((msg, i) => (
+               <div key={i} className={msg?.role === 'user' ? 'glass-bubble-user' : 'glass-bubble-ai-light'}>
+                 {msg?.content ?? ''}
+               </div>
+             ))}
+             {state === 'loading' && (
+               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '4px' }}>
+                 <div className="glass-dot glass-dot-active" style={{ width: '8px', height: '8px' }} />
+                 <span style={{ color: '#666', fontSize: '12px' }}>MindGate is thinking...</span>
+               </div>
+             )}
+           </>
+         ) : chatError ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '20px' }}>
             <div style={{ color: '#cc3b2e', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
               Connection Error
@@ -277,10 +304,15 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
       <div className="glass-divider" style={{ margin: '0 8px' }} />
 
       <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', padding: '8px' }}>
-        <textarea
+<textarea
+          ref={inputRef}
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void handleSubmit();
+            }
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
               e.preventDefault();
               void handleSubmit();

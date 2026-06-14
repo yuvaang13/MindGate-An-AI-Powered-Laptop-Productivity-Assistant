@@ -85,10 +85,14 @@ export class WindowManager {
     this.overlayWindow?.setPosition(x, y);
     this.overlayWindow?.setSize(width, height);
     this.overlayWindow?.show();
-    this.overlayWindow?.focus();
-    this.overlayWindow?.moveTop();
 
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.focus();
+      this.overlayWindow.moveTop();
+      this.overlayWindow.setAlwaysOnTop(true);
+      this.overlayWindow.setVisibleOnAllWorkspaces(false);
+      this.overlayWindow.setFullScreenable(false);
+
       this.overlayWindow.webContents
         .executeJavaScript('window.__showOverlay?.()', true)
         .catch((err) => console.warn('[WindowManager] __showOverlay call failed:', err));
