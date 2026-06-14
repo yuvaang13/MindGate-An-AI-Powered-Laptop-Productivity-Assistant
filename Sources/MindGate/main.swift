@@ -8,9 +8,15 @@ let delegate = AppDelegate()
 app.delegate = delegate
 
 signal(SIGINT) { _ in
-  DispatchQueue.main.async {
-    NSApplication.shared.terminate(nil)
-  }
+    DispatchQueue.main.async {
+        app.terminate(nil)
+    }
+}
+
+signal(SIGTERM) { _ in
+    DispatchQueue.main.async {
+        app.terminate(nil)
+    }
 }
 
 app.run()

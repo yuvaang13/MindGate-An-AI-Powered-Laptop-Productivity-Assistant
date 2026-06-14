@@ -56,7 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Request Accessibility Permission", action: #selector(requestAccessibilityPermission), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit MindGate", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit MindGate", action: #selector(terminateApp), keyEquivalent: "q"))
         statusBarItem.menu = menu
     }
 
@@ -83,13 +83,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func terminateApp() {
+        logger.info("🛑 Quit menu item selected, initiating termination")
+        NSApplication.shared.terminate(nil)
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
     }
     
     func applicationWillTerminate(_ notification: Notification) {
-        logger.info("🛑 MindGate: Application terminating")
+        logger.info("🛑 MindGate: Application terminating - performing cleanup")
         workspaceMonitor?.stopMonitoring()
+        windowManager?.cleanup()
+        settingsWindow?.close()
+        statusBarItem = nil
     }
 
     private func showAccessibilityPrompt() {
