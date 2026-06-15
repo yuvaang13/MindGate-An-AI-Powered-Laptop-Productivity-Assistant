@@ -524,13 +524,41 @@ app.on('will-quit', () => {
 
 // Ensure Electron quits on SIGTERM/SIGINT for proper cleanup
 process.on('SIGTERM', () => {
-  dbg('[Main] Received SIGTERM, quitting app');
-  app.quit();
+  dbg('[Main] Received SIGTERM, forcing exit');
+  isQuitting = true;
+  if (ollamaStatusInterval) {
+    clearInterval(ollamaStatusInterval);
+    ollamaStatusInterval = null;
+  }
+  workspaceMonitor?.stopMonitoring();
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.destroy();
+  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.destroy();
+  }
+  tray?.destroy();
+  tray = null;
+  app.exit(0);
 });
 
 process.on('SIGINT', () => {
-  dbg('[Main] Received SIGINT, quitting app');
-  app.quit();
+  dbg('[Main] Received SIGINT, forcing exit');
+  isQuitting = true;
+  if (ollamaStatusInterval) {
+    clearInterval(ollamaStatusInterval);
+    ollamaStatusInterval = null;
+  }
+  workspaceMonitor?.stopMonitoring();
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.destroy();
+  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.destroy();
+  }
+  tray?.destroy();
+  tray = null;
+  app.exit(0);
 });
 
 app.on('activate', () => {

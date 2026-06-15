@@ -31,6 +31,13 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   },
 });
 
+// Listen for focus-input signal from main process
+ipcRenderer.on('focus-input', () => {
+  window.dispatchEvent(new CustomEvent('mindgate-focus-input'));
+});
+
+ipcRenderer.send('preload-ready');
+
 declare global {
   interface Window {
     mindgateAPI: {
@@ -58,5 +65,9 @@ declare global {
       getAvailableModels: () => Promise<string[]>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };
+    __focusInput?: () => void;
+    __showOverlay?: () => void;
+    __hideOverlay?: () => void;
+    __resetOverlay?: () => void;
   }
 }

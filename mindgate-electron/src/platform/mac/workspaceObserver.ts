@@ -101,14 +101,14 @@ export class WorkspaceObserver extends EventEmitter {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
-    this.killProcess();
+    this.killProcess('SIGKILL');
     this.removeAllListeners();
   }
 
-  private killProcess(): void {
+  private killProcess(signal: NodeJS.Signals = 'SIGTERM'): void {
     if (this.process) {
       try {
-        this.process.kill('SIGTERM');
+        this.process.kill(signal);
       } catch {
         // already dead
       }

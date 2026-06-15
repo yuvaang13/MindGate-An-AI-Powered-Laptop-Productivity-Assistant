@@ -38,17 +38,29 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const waitForMindgateAPI = async (maxWaitMs = 8000): Promise<boolean> => {
-    const start = Date.now();
-    while (Date.now() - start < maxWaitMs) {
+  const waitForMindgateAPI = async (maxWaitMs = 15000): Promise<boolean> => {
+    return new Promise((resolve) => {
       if (window.mindgateAPI) {
         apiReadyRef.current = true;
-        return true;
+        resolve(true);
+        return;
       }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    console.error('[Overlay] mindgateAPI not available after waiting. window object:', Object.keys(window).filter((k) => k.includes('mindgate')));
-    return !!window.mindgateAPI;
+
+      // Check periodically for API availability
+      const pollInterval = setInterval(() => {
+        if (window.mindgateAPI) {
+          apiReadyRef.current = true;
+          clearInterval(pollInterval);
+          resolve(true);
+        }
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        console.error('[Overlay] mindgateAPI not available after waiting. window object:', Object.keys(window).filter((k) => k.includes('mindgate')));
+        resolve(!!window.mindgateAPI);
+      }, maxWaitMs);
+    });
   };
 
   const handleRetry = async () => {
@@ -68,6 +80,17 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Listen for focus-input event from main process
+  useEffect(() => {
+    const handleFocusInput = () => {
+      if (inputRef.current && !isInputDisabled) {
+        inputRef.current.focus();
+      }
+    };
+    window.addEventListener('mindgate-focus-input', handleFocusInput);
+    return () => window.removeEventListener('mindgate-focus-input', handleFocusInput);
+  }, [isInputDisabled]);
 
   const initChat = async () => {
     const apiReady = await waitForMindgateAPI();
@@ -310,25 +333,26 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
       <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', padding: '8px' }}>
 <textarea
-          ref={inputRef}
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void handleSubmit();
-            }
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-              e.preventDefault();
-              void handleSubmit();
-            }
-          }}
-          placeholder="Explain why you need access..."
-          className="glass-input"
-          disabled={isInputDisabled}
-          rows={1}
-          style={{ resize: 'none', flex: 1, minHeight: '36px', maxHeight: '60px', fontSize: '13px' }}
-        />
+           ref={inputRef}
+           value={userInput}
+           onChange={(e) => setUserInput(e.target.value)}
+           onKeyDown={(e) => {
+             if (e.key === 'Enter' && !e.shiftKey) {
+               e.preventDefault();
+               void handleSubmit();
+             }
+             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+               e.preventDefault();
+               void handleSubmit();
+             }
+           }}
+           placeholder="Explain why you need access..."
+           className="glass-input"
+           disabled={isInputDisabled}
+           rows={1}
+           autoFocus
+           style={{ resize: 'none', flex: 1, minHeight: '36px', maxHeight: '60px', fontSize: '13px' }}
+         />
         <button
           onClick={() => void handleSubmit()}
           disabled={!userInput.trim() || isInputDisabled || !!chatError}
