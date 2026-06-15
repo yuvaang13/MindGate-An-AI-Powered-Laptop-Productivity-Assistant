@@ -94,6 +94,7 @@ export class WindowManager {
 
       // Send focus-input event after window shows
       setTimeout(() => {
+        this.overlayWindow?.webContents.send('focus-input');
         this.overlayWindow?.webContents
           .executeJavaScript('document.querySelector("textarea")?.focus()')
           .catch(() => {});

@@ -160,11 +160,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   }), [configuration]);
 
   useEffect(() => {
-    // Small delay to ensure window.mindgateAPI is available after preload script runs
-    const timer = setTimeout(() => {
-      void initChat();
-    }, 100);
-    return () => clearTimeout(timer);
+    void initChat();
   }, []); // Run once on mount
 
   useEffect(() => {
