@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import type { Configuration } from './src/types.js';
 
+// Expose API immediately
 contextBridge.exposeInMainWorld('mindgateAPI', {
   checkOllamaConnection: () => ipcRenderer.invoke('check-ollama-connection'),
   generateFirstMessage: () => ipcRenderer.invoke('generate-first-message'),
@@ -30,6 +31,20 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
     };
   },
 });
+
+// Set up preload-ready promise for renderer to wait on
+let preloadResolve: (() => void) | undefined;
+const preloadPromise = new Promise<void>((resolve) => {
+  preloadResolve = resolve;
+});
+ipcRenderer.on('preload-ready-ack', () => {
+  preloadResolve?.();
+});
+// Store on window for renderer to access
+(window as unknown as { __preloadReady: Promise<void> }).__preloadReady = preloadPromise;
+
+// Set flag synchronously - renderer can check this immediately
+window.__MINDGATE_BRIDGE_READY__ = true;
 
 // Listen for focus-input signal from main process
 ipcRenderer.on('focus-input', () => {
@@ -65,6 +80,8 @@ declare global {
       getAvailableModels: () => Promise<string[]>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };
+    __MINDGATE_BRIDGE_READY__?: boolean;
+    __preloadReady?: Promise<void>;
     __focusInput?: () => void;
     __showOverlay?: () => void;
     __hideOverlay?: () => void;

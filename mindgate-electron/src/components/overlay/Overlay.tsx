@@ -39,6 +39,16 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
   };
 
   const waitForMindgateAPI = async (maxWaitMs = 15000): Promise<boolean> => {
+    // Wait for preload-ready-ack acknowledgment
+    const preloadReady = (window as unknown as { __preloadReady?: Promise<void> }).__preloadReady;
+    if (preloadReady) {
+      console.log('[Overlay] Waiting for preload-ready-ack...');
+      await Promise.race([
+        preloadReady,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('preload timeout')), maxWaitMs - 1000)),
+      ]).catch(() => {}); // Ignore timeout, fall through to polling
+    }
+
     return new Promise((resolve) => {
       if (window.mindgateAPI) {
         apiReadyRef.current = true;

@@ -436,6 +436,16 @@ function setupIPC() {
       }
     }
   }, 30000);
+
+  // Listen for preload-ready notification and acknowledge it
+  ipcMain.on('preload-ready', () => {
+    dbg('[Main] preload-ready received');
+    setTimeout(() => {
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send('preload-ready-ack');
+      }
+    }, 100);
+  });
 }
 
 function setupEventHandlers() {
