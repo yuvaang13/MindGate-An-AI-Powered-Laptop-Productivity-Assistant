@@ -14,7 +14,7 @@ interface OverlayProps {
 
 type OverlayState = 'chat' | 'loading' | 'approved' | 'denied' | 'takeover';
 
-const AI_INIT_TIMEOUT_MS = 8000;
+const AI_INIT_TIMEOUT_MS = 3000;
 const APPROVAL_DISPLAY_MS = 2500;
 
 export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ configuration, onClose }, ref) => {
@@ -38,40 +38,45 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const waitForMindgateAPI = async (maxWaitMs = 15000): Promise<boolean> => {
-    // Wait for preload-ready-ack acknowledgment
-    const preloadReady = (window as unknown as { __preloadReady?: Promise<void> }).__preloadReady;
-    if (preloadReady) {
-      console.log('[Overlay] Waiting for preload-ready-ack...');
-      await Promise.race([
-        preloadReady,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('preload timeout')), maxWaitMs - 1000)),
-      ]).catch(() => {}); // Ignore timeout, fall through to polling
+const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
+  // Check immediate flag first - bridge should be ready synchronously
+  if (window.__MINDGATE_BRIDGE_READY__) {
+    return true;
+  }
+
+  // Wait for preload-ready-ack acknowledgment
+  const preloadReady = (window as unknown as { __preloadReady?: Promise<void> }).__preloadReady;
+  if (preloadReady) {
+    console.log('[Overlay] Waiting for preload-ready-ack...');
+    await Promise.race([
+      preloadReady,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('preload timeout')), maxWaitMs - 100)),
+    ]).catch(() => {}); // Ignore timeout, fall through to polling
+  }
+
+  return new Promise((resolve) => {
+    if (window.mindgateAPI) {
+      apiReadyRef.current = true;
+      resolve(true);
+      return;
     }
 
-    return new Promise((resolve) => {
+    // Check periodically for API availability
+    const pollInterval = setInterval(() => {
       if (window.mindgateAPI) {
         apiReadyRef.current = true;
-        resolve(true);
-        return;
-      }
-
-      // Check periodically for API availability
-      const pollInterval = setInterval(() => {
-        if (window.mindgateAPI) {
-          apiReadyRef.current = true;
-          clearInterval(pollInterval);
-          resolve(true);
-        }
-      }, 100);
-
-      setTimeout(() => {
         clearInterval(pollInterval);
-        console.error('[Overlay] mindgateAPI not available after waiting. window object:', Object.keys(window).filter((k) => k.includes('mindgate')));
-        resolve(!!window.mindgateAPI);
-      }, maxWaitMs);
-    });
-  };
+        resolve(true);
+      }
+    }, 50);
+
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      console.error('[Overlay] mindgateAPI not available after waiting. window object:', Object.keys(window).filter((k) => k.includes('mindgate')));
+      resolve(!!window.mindgateAPI);
+    }, maxWaitMs);
+  });
+};
 
   const handleRetry = async () => {
     setIsRetrying(true);
@@ -110,6 +115,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
         content: 'MindGate bridge not initialized. Please restart the app.',
         timestamp: Date.now(),
       }]);
+      setChatError('Connection failed. Click Retry to try again.');
       setAiReady(true);
       return;
     }
@@ -134,6 +140,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
     }
 
     setMessages([{ role: 'ai', content: firstMessage, timestamp: Date.now() }]);
+    setChatError(null);
     setAiReady(true);
     setTimeout(() => {
       if (inputRef.current && !isInputDisabled) {

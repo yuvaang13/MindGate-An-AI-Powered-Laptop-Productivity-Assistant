@@ -5,6 +5,9 @@ export class OllamaService {
   private model: string;
   private retryCount: number = 0;
   private baseRetryDelay: number = 1000;
+  private cachedConnectionStatus: boolean | null = null;
+  private cachedConnectionTime: number = 0;
+  private connectionCacheTTL: number = 10000; // 10 seconds cache
 
   constructor(baseURL: string, model: string) {
     this.baseURL = baseURL;
@@ -25,9 +28,19 @@ export class OllamaService {
   }
 
   async checkConnection(): Promise<boolean> {
+    // Return cached status if still valid
+    const now = Date.now();
+    if (this.cachedConnectionStatus !== null && now - this.cachedConnectionTime < this.connectionCacheTTL) {
+      return this.cachedConnectionStatus;
+    }
+
     try {
       const tagsOk = await this.checkTagsEndpoint();
-      if (!tagsOk) return false;
+      if (!tagsOk) {
+        this.cachedConnectionStatus = false;
+        this.cachedConnectionTime = now;
+        return false;
+      }
       const modelExists = await this.checkModelExists();
       if (!modelExists) {
         const fallback = await this.getBestAvailableModel();
@@ -35,11 +48,17 @@ export class OllamaService {
           console.log('[Ollama] Falling back to model:', fallback);
           this.model = fallback;
         }
+        this.cachedConnectionStatus = fallback !== null;
+        this.cachedConnectionTime = now;
         return fallback !== null;
       }
+      this.cachedConnectionStatus = true;
+      this.cachedConnectionTime = now;
       return true;
     } catch (error) {
       console.error('[Ollama] Connection check failed:', error);
+      this.cachedConnectionStatus = false;
+      this.cachedConnectionTime = now;
       return false;
     }
   }
@@ -47,7 +66,7 @@ export class OllamaService {
   private async checkTagsEndpoint(): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 2000);
       const response = await fetch(this.getTagsUrl(), {
         method: 'GET',
         signal: controller.signal,
@@ -74,7 +93,7 @@ export class OllamaService {
   private async checkModelExists(): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 2000);
       const response = await fetch(this.getTagsUrl(), {
         method: 'GET',
         signal: controller.signal,
@@ -194,7 +213,7 @@ export class OllamaService {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        const timeout = setTimeout(() => controller.abort(), 5000);
         const response = await fetch(this.baseURL, {
           method: 'POST',
           headers: {

@@ -171,11 +171,8 @@ async function initialize() {
     console.log('Accessibility permission not granted — some features may be limited');
   }
 
-  isOllamaConnected = await decisionEngine.checkOllamaConnection();
-  if (!isOllamaConnected) {
-    tray?.setTitle('⚠️');
-    tray?.setToolTip('MindGate - Ollama not connected. Please start Ollama.');
-  }
+  // Check Ollama in background - don't block window creation
+  checkOllamaInBackground();
 }
 
 async function createWindows(): Promise<void> {
@@ -408,7 +405,7 @@ function setupIPC() {
     }
   });
 
-  ipcMain.handle('launch-app', async (_event, appName: string) => {
+ipcMain.handle('launch-app', async (_event, appName: string) => {
     try {
       const appPath = join('/Applications', `${appName}.app`);
       await shell.openPath(appPath);
@@ -417,6 +414,15 @@ function setupIPC() {
       try {
         await shell.openExternal('https://www.google.com');
       } catch {}
+    }
+  });
+
+  // Listen for preload-ready notification and acknowledge it
+  ipcMain.on('preload-ready', () => {
+    dbg('[Main] preload-ready received');
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('preload-ready-ack');
+      dbg('[Main] preload-ready-ack sent');
     }
   });
 
@@ -436,16 +442,16 @@ function setupIPC() {
       }
     }
   }, 30000);
+}
 
-  // Listen for preload-ready notification and acknowledge it
-  ipcMain.on('preload-ready', () => {
-    dbg('[Main] preload-ready received');
-    setTimeout(() => {
-      if (overlayWindow && !overlayWindow.isDestroyed()) {
-        overlayWindow.webContents.send('preload-ready-ack');
-      }
-    }, 100);
-  });
+function checkOllamaInBackground(): void {
+  void (async () => {
+    isOllamaConnected = await decisionEngine.checkOllamaConnection();
+    if (!isOllamaConnected) {
+      tray?.setTitle('⚠️');
+      tray?.setToolTip('MindGate - Ollama not connected. Please start Ollama.');
+    }
+  })();
 }
 
 function setupEventHandlers() {

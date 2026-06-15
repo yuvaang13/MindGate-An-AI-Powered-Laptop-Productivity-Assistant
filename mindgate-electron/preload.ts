@@ -80,7 +80,7 @@ declare global {
       getAvailableModels: () => Promise<string[]>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };
-    __MINDGATE_BRIDGE_READY__?: boolean;
+    __MINDGATE_BRIDGE_READY__: boolean;
     __preloadReady?: Promise<void>;
     __focusInput?: () => void;
     __showOverlay?: () => void;

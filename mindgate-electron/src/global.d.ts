@@ -27,6 +27,8 @@ declare global {
       getAvailableModels: () => Promise<string[]>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };
+    __MINDGATE_BRIDGE_READY__: boolean;
+    __preloadReady?: Promise<void>;
     __showOverlay?: () => void;
     __hideOverlay?: () => void;
     __resetOverlay?: () => void;
