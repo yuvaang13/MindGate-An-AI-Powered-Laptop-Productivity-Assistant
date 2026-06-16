@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Configuration, ChatMessage } from '../../types';
 import { TakeoverView } from '../takeover/TakeoverView';
+import { MessageList } from './MessageBubble';
 import '../../styles/glassmorphism.css';
 
 export interface OverlayHandle {
@@ -32,71 +33,15 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ con
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const apiReadyRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
-  // Check immediate flag first - bridge should be ready synchronously
-  if (window.__MINDGATE_BRIDGE_READY__) {
-    return true;
-  }
-
-  // Wait for preload-ready-ack acknowledgment
-  const preloadReady = (window as unknown as { __preloadReady?: Promise<void> }).__preloadReady;
-  if (preloadReady) {
-    console.log('[Overlay] Waiting for preload-ready-ack...');
-    await Promise.race([
-      preloadReady,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('preload timeout')), maxWaitMs - 100)),
-    ]).catch(() => {}); // Ignore timeout, fall through to polling
-  }
-
-  return new Promise((resolve) => {
-    if (window.mindgateAPI) {
-      apiReadyRef.current = true;
-      resolve(true);
-      return;
-    }
-
-    // Check periodically for API availability
-    const pollInterval = setInterval(() => {
-      if (window.mindgateAPI) {
-        apiReadyRef.current = true;
-        clearInterval(pollInterval);
-        resolve(true);
-      }
-    }, 50);
-
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      console.error('[Overlay] mindgateAPI not available after waiting. window object:', Object.keys(window).filter((k) => k.includes('mindgate')));
-      resolve(!!window.mindgateAPI);
-    }, maxWaitMs);
-  });
-};
-
-  const handleRetry = async () => {
-    setIsRetrying(true);
-    setChatError(null);
-    setMessages([]);
-    try {
-      await initChat();
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : 'Unknown error';
-      setChatError(`Failed to start AI chat: ${errorMsg}. Click Retry to try again.`);
-    } finally {
-      setIsRetrying(false);
-    }
-  };
-
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isAiThinking]);
 
-  // Listen for focus-input event from main process
   useEffect(() => {
     const handleFocusInput = () => {
       if (inputRef.current && !isInputDisabled) {
@@ -107,14 +52,45 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
     return () => window.removeEventListener('mindgate-focus-input', handleFocusInput);
   }, [isInputDisabled]);
 
+  const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
+    if (window.__MINDGATE_BRIDGE_READY__) {
+      return true;
+    }
+
+    const preloadReady = (window as unknown as { __preloadReady?: Promise<void> }).__preloadReady;
+    if (preloadReady) {
+      console.log('[Overlay] Waiting for preload-ready-ack...');
+      await Promise.race([
+        preloadReady,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('preload timeout')), maxWaitMs - 100)),
+      ]).catch(() => {});
+    }
+
+    return new Promise((resolve) => {
+      if (window.mindgateAPI) {
+        resolve(true);
+        return;
+      }
+
+      const pollInterval = setInterval(() => {
+        if (window.mindgateAPI) {
+          clearInterval(pollInterval);
+          resolve(true);
+        }
+      }, 50);
+
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        console.error('[Overlay] mindgateAPI not available after waiting. window object:', Object.keys(window).filter((k) => k.includes('mindgate')));
+        resolve(!!window.mindgateAPI);
+      }, maxWaitMs);
+    });
+  };
+
   const initChat = async () => {
     const apiReady = await waitForMindgateAPI();
     if (!apiReady) {
-      setMessages([{
-        role: 'ai',
-        content: 'MindGate bridge not initialized. Please restart the app.',
-        timestamp: Date.now(),
-      }]);
+      setMessages([{ role: 'ai', content: 'MindGate bridge not initialized. Please restart the app.', timestamp: Date.now() }]);
       setChatError('Connection failed. Click Retry to try again.');
       setAiReady(true);
       return;
@@ -149,6 +125,20 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
     }, 100);
   };
 
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    setChatError(null);
+    setMessages([]);
+    try {
+      await initChat();
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+      setChatError(`Failed to start AI chat: ${errorMsg}. Click Retry to try again.`);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     resetChat: async () => {
       setState('chat');
@@ -168,7 +158,7 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
 
   useEffect(() => {
     void initChat();
-  }, []); // Run once on mount
+  }, []);
 
   useEffect(() => {
     if (state === 'chat' && aiReady && !isAiThinking) {
@@ -279,98 +269,56 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
   };
 
   const renderChat = () => (
-    <div style={{
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'transparent',
-      borderRadius: 'var(--glass-radius-md)',
-      overflow: 'hidden',
-      minHeight: 0,
-    }}>
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        overflowY: 'auto',
-        padding: '8px',
-        minHeight: 0,
-      }}>
-{messages.length > 0 ? (
-           <>
-             {messages.map((msg, i) => (
-               <div key={i} className={msg?.role === 'user' ? 'glass-bubble-user' : 'glass-bubble-ai-light'}>
-                 {msg?.content ?? ''}
-               </div>
-             ))}
-             {state === 'loading' && (
-               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '4px' }}>
-                 <div className="glass-dot glass-dot-active" style={{ width: '8px', height: '8px' }} />
-                 <span style={{ color: '#666', fontSize: '12px' }}>MindGate is thinking...</span>
-               </div>
-             )}
-           </>
-         ) : chatError ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '20px' }}>
-            <div style={{ color: '#cc3b2e', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
-              Connection Error
-            </div>
-            <div style={{ color: '#555', fontSize: '12px', textAlign: 'center', lineHeight: 1.4 }}>
-              {chatError}
-            </div>
-            <button
-              onClick={() => void handleRetry()}
-              disabled={isRetrying}
-              className="glass-btn"
-              style={{ padding: '8px 20px', fontSize: '13px' }}
-            >
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div className="glass-message-container">
+        {chatError && messages.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '24px' }}>
+            <div style={{ color: '#ff3b30', fontSize: '16px', fontWeight: '600', textAlign: 'center' }}>Connection Error</div>
+            <div style={{ color: '#8e8e93', fontSize: '13px', textAlign: 'center', lineHeight: 1.5, maxWidth: '220px' }}>{chatError}</div>
+            <button onClick={() => void handleRetry()} disabled={isRetrying} className="glass-btn">
               {isRetrying ? 'Retrying...' : 'Retry'}
             </button>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '20px' }}>
-            <div className="glass-dot glass-dot-active" style={{ width: '10px', height: '10px' }} />
-            <div style={{ color: '#1c1c1e', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
-              Initializing AI...
-            </div>
-            <div style={{ color: '#666', fontSize: '12px', textAlign: 'center' }}>
-              Connecting to MindGate AI
-            </div>
+        ) : messages.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '24px' }}>
+            <div className="glass-dot glass-dot-active" style={{ width: '12px', height: '12px' }} />
+            <div style={{ color: 'var(--glass-text)', fontSize: '15px', fontWeight: '600', textAlign: 'center' }}>Initializing AI...</div>
+            <div style={{ color: 'var(--glass-text-secondary)', fontSize: '13px', textAlign: 'center' }}>Connecting to MindGate AI</div>
           </div>
+        ) : (
+          <MessageList messages={messages} isAiThinking={isAiThinking} />
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="glass-divider" style={{ margin: '0 8px' }} />
+      <div className="glass-divider" />
 
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', padding: '8px' }}>
-<textarea
-           ref={inputRef}
-           value={userInput}
-           onChange={(e) => setUserInput(e.target.value)}
-           onKeyDown={(e) => {
-             if (e.key === 'Enter' && !e.shiftKey) {
-               e.preventDefault();
-               void handleSubmit();
-             }
-             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-               e.preventDefault();
-               void handleSubmit();
-             }
-           }}
-           placeholder="Explain why you need access..."
-           className="glass-input"
-           disabled={isInputDisabled}
-           rows={1}
-           autoFocus
-           style={{ resize: 'none', flex: 1, minHeight: '36px', maxHeight: '60px', fontSize: '13px' }}
-         />
+      <div className="glass-input-container">
+        <textarea
+          ref={inputRef}
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void handleSubmit();
+            }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              void handleSubmit();
+            }
+          }}
+          placeholder="Type your response..."
+          className="glass-input"
+          disabled={isInputDisabled || !!chatError}
+          rows={1}
+          autoFocus
+        />
         <button
           onClick={() => void handleSubmit()}
           disabled={!userInput.trim() || isInputDisabled || !!chatError}
           className="glass-btn"
-          style={{ height: '36px', padding: '0 14px', flexShrink: 0, fontSize: '13px' }}
+          style={{ height: '40px', padding: '0 16px', flexShrink: 0 }}
         >
           Send
         </button>
@@ -379,10 +327,9 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
   );
 
   const renderApproved = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-      <p style={{ fontSize: '16px', fontWeight: '600', color: '#30D158', textAlign: 'center', margin: 0 }}>
-        {aiResponse}
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+      <div style={{ fontSize: '48px' }}>✓</div>
+      <p style={{ fontSize: '16px', fontWeight: '600', color: '#30d158', textAlign: 'center', margin: 0 }}>{aiResponse}</p>
       {remainingAccessTime !== null && (
         <p style={{ fontSize: '13px', color: 'rgba(0,0,0,0.5)', textAlign: 'center', margin: 0 }}>
           Time remaining: {Math.floor(remainingAccessTime / 60)}m {remainingAccessTime % 60}s
@@ -392,30 +339,23 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
   );
 
   const renderDenied = () => (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <p style={{ fontSize: '16px', fontWeight: '600', color: 'var(--glass-text)', margin: 0 }}>{aiResponse}</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+      <div style={{ fontSize: '48px' }}>✗</div>
+      <p style={{ fontSize: '16px', fontWeight: '600', color: 'var(--glass-error)', textAlign: 'center', margin: 0 }}>{aiResponse}</p>
     </div>
   );
 
   const renderTakeover = () => (
-    <TakeoverView
-      configuration={configuration}
-      onDismiss={onClose}
-    />
+    <TakeoverView configuration={configuration} onDismiss={onClose} />
   );
 
   const renderContent = () => {
     switch (state) {
-      case 'loading':
-        return renderChat();
-      case 'approved':
-        return renderApproved();
-      case 'denied':
-        return renderDenied();
-      case 'takeover':
-        return renderTakeover();
-      default:
-        return renderChat();
+      case 'loading': return renderChat();
+      case 'approved': return renderApproved();
+      case 'denied': return renderDenied();
+      case 'takeover': return renderTakeover();
+      default: return renderChat();
     }
   };
 
@@ -436,17 +376,11 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
         zIndex: 2147483647,
       }}
     >
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={`glass-dot ${state === 'chat' || state === 'loading' ? 'glass-dot-active' : ''}`} />
-          <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--glass-text)' }}>
-            MindGate
-          </span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+        <div className="glass-header">
+          <div className="glass-avatar">MG</div>
+          <span style={{ fontSize: '16px', fontWeight: '600', color: 'var(--glass-text)' }}>MindGate AI</span>
+          <div className={aiReady ? 'glass-status-connected' : 'glass-status-disconnected'} title={aiReady ? 'Connected' : 'Disconnected'} />
         </div>
         {state === 'chat' && (
           <span className="glass-countdown" style={handleCountdownStyle()}>
@@ -455,9 +389,7 @@ const waitForMindgateAPI = async (maxWaitMs = 3000): Promise<boolean> => {
         )}
       </div>
       <div className="glass-divider" />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {renderContent()}
-      </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>{renderContent()}</div>
     </div>
   );
 });
