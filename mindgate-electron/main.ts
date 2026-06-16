@@ -58,6 +58,8 @@ let isOllamaConnected: boolean = false;
 let hasRequestedPermissions: boolean = false;
 let isQuitting: boolean = false;
 
+const DEFAULT_FIRST_MESSAGE = 'What do you need access for?';
+
 function getDefaultConfiguration(): Configuration {
   return {
     settings: {
@@ -303,24 +305,27 @@ function setupIPC() {
 
   ipcMain.handle('generate-first-message', async () => {
     if (!decisionEngine) {
-      return 'MindGate is initializing. Please wait...';
+      return DEFAULT_FIRST_MESSAGE;
     }
-    const connected = await decisionEngine.checkOllamaConnection();
-    if (!connected) {
-      return 'MindGate AI is not connected. Please start Ollama.';
+    try {
+      return await decisionEngine.generateFirstMessage();
+    } catch {
+      return DEFAULT_FIRST_MESSAGE;
     }
-    return await decisionEngine.generateFirstMessage();
   });
 
   ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
     if (!decisionEngine) {
       return { message: 'MindGate is initializing. Please wait...', isApproved: false };
     }
-    const connected = await decisionEngine.checkOllamaConnection();
-    if (!connected) {
-      return { message: 'Ollama service unavailable. Access denied.', isApproved: false };
+    try {
+      return await decisionEngine.sendChatMessage(userInput);
+    } catch (error) {
+      return {
+        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        isApproved: false,
+      };
     }
-    return await decisionEngine.sendChatMessage(userInput);
   });
 
   ipcMain.handle('reset-chat', async () => {
@@ -335,14 +340,14 @@ function setupIPC() {
         message: 'MindGate is initializing. Please wait...',
       };
     }
-    const connected = await decisionEngine.checkOllamaConnection();
-    if (!connected) {
+    try {
+      return await decisionEngine.evaluateRequest(userInput);
+    } catch (error) {
       return {
         isApproved: false,
-        message: 'Ollama service unavailable. Please start Ollama to use MindGate.',
+        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
-    return await decisionEngine.evaluateRequest(userInput);
   });
 
   ipcMain.handle('grant-access', (_event, durationSeconds: number) => {

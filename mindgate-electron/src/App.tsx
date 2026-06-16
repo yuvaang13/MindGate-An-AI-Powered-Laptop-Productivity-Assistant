@@ -164,11 +164,12 @@ const App: React.FC = () => {
           Ollama Disconnected
         </div>
       )}
-      <LiquidGlassOverlay
+<LiquidGlassOverlay
         ref={overlayRef}
         configuration={cfg}
+        ollamaConnected={isOllamaConnected}
         onClose={handleClose}
-      />
+       />
     </ErrorBoundary>
   );
 };

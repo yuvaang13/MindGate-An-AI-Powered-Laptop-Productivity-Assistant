@@ -65,7 +65,16 @@ Your first message to them should be a brief, firm question asking why they need
     this.trimChatHistory();
 
     const context = this.getDistractionContext();
-    const response = await this.ollamaService.chat(this.chatHistory, context);
+    let response: string;
+    try {
+      response = await this.ollamaService.chat(this.chatHistory, context);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        message: `MindGate AI error: ${errorMsg}`,
+        isApproved: false,
+      };
+    }
     const cleanResponse = response.replace(/^MindGate:\s*/i, '').trim();
 
     this.chatHistory.push({ role: 'ai', content: cleanResponse, timestamp: Date.now() });

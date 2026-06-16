@@ -91,15 +91,17 @@ export class WindowManager {
       this.overlayWindow.setAlwaysOnTop(true);
       this.overlayWindow.setVisibleOnAllWorkspaces(false);
       this.overlayWindow.setFullScreenable(false);
-
-      // Send focus-input event after window shows
-      setTimeout(() => {
-        this.overlayWindow?.webContents.send('focus-input');
-        this.overlayWindow?.webContents
-          .executeJavaScript('document.querySelector("textarea")?.focus()')
-          .catch(() => {});
-      }, 150);
+      this.focusOverlayInput();
+      setTimeout(() => this.focusOverlayInput(), 100);
+      setTimeout(() => this.focusOverlayInput(), 250);
     }
+  }
+
+  private focusOverlayInput(): void {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+    this.overlayWindow.webContents
+      .executeJavaScript('document.querySelector("textarea")?.focus()')
+      .catch(() => {});
   }
 
   hideOverlay() {

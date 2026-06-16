@@ -207,7 +207,7 @@ export class OllamaService {
     }
   }
 
-  async generateRawResponse(prompt: string, maxRetries: number = 3): Promise<string> {
+  async generateRawResponse(prompt: string, maxRetries: number = 1): Promise<string> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
