@@ -1,14 +1,10 @@
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 import type { Configuration } from './src/types.js';
 
-// Expose API immediately
+// Expose API immediately on window object
 contextBridge.exposeInMainWorld('mindgateAPI', {
   checkOllamaConnection: () => ipcRenderer.invoke('check-ollama-connection'),
-  generateFirstMessage: () => ipcRenderer.invoke('generate-first-message'),
   sendChatMessage: (userInput: string) => ipcRenderer.invoke('send-chat-message', userInput),
-  resetChat: () => ipcRenderer.invoke('reset-chat'),
-  evaluateRequest: (userInput: string) => ipcRenderer.invoke('evaluate-request', userInput),
-  grantAccess: (durationSeconds: number) => ipcRenderer.invoke('grant-access', durationSeconds),
   getConfiguration: () => ipcRenderer.invoke('get-configuration'),
   hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
   closeDistraction: () => ipcRenderer.invoke('close-distraction'),
@@ -18,13 +14,10 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   getRemainingAccessTime: () => ipcRenderer.invoke('get-remaining-access-time'),
   checkAccessibilityPermission: () => ipcRenderer.invoke('check-accessibility-permission'),
   requestAccessibilityPermission: () => ipcRenderer.invoke('request-accessibility-permission'),
-  getAvailableModels: () => ipcRenderer.invoke('get-available-models'),
-  launchURL: (url: string) => ipcRenderer.invoke('launch-url', url),
-  launchApp: (appName: string) => ipcRenderer.invoke('launch-app', appName),
-  debugShowOverlay: () => ipcRenderer.invoke('debug-show-overlay'),
+  grantAccess: (durationSeconds: number) => ipcRenderer.invoke('grant-access', durationSeconds),
 
   onOllamaStatusChanged: (callback: (connected: boolean) => void) => {
-    const handler = (_event: IpcRendererEvent, connected: boolean) => callback(connected);
+    const handler = (_event: unknown, connected: boolean) => callback(connected);
     ipcRenderer.on('ollama-status-changed', handler);
     return () => {
       ipcRenderer.removeListener('ollama-status-changed', handler);
@@ -32,26 +25,8 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   },
 });
 
-// Set up preload-ready promise for renderer to wait on
-let preloadResolve: (() => void) | undefined;
-const preloadPromise = new Promise<void>((resolve) => {
-  preloadResolve = resolve;
-});
-ipcRenderer.on('preload-ready-ack', () => {
-  preloadResolve?.();
-});
-// Store on window for renderer to access
-(window as unknown as { __preloadReady: Promise<void> }).__preloadReady = preloadPromise;
-
-// Set flag synchronously - renderer can check this immediately
-window.__MINDGATE_BRIDGE_READY__ = true;
-
-// Listen for focus-input signal from main process
-ipcRenderer.on('focus-input', () => {
-  window.dispatchEvent(new CustomEvent('mindgate-focus-input'));
-});
-
-ipcRenderer.send('preload-ready');
+// Set bridge ready flag - this is synchronous
+(window as unknown as { __MINDGATE_BRIDGE_READY__: boolean }).__MINDGATE_BRIDGE_READY__ = true;
 
 declare global {
   interface Window {

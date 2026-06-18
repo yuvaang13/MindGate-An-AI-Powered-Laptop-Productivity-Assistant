@@ -76,24 +76,24 @@ function getDefaultConfiguration(): Configuration {
     },
     theme: {
       colors: {
-        primary: '#FFFFFF',
-        secondary: '#FFFFFFB3',
-        accent: '#FFFFFF99',
-        background: '#000000',
-        surface: '#000000',
-        text: '#FFFFFF',
-        textSecondary: '#FFFFFFB3',
-        error: '#FF453A',
-        warning: '#FF9F0A',
+        primary: '#f5f5f7',
+        secondary: '#a1a1a6',
+        accent: '#34c759',
+        background: '#19191e',
+        surface: '#252528',
+        text: '#f5f5f7',
+        textSecondary: '#a1a1a6',
+        error: '#ff453a',
+        warning: '#ff9f0a',
       },
       animation: {
-        transitionDuration: 0.3,
-        overlayFadeDuration: 0.3,
+        transitionDuration: 0.2,
+        overlayFadeDuration: 0.2,
       },
       dimensions: {
-        overlayWidth: 280,
-        overlayHeight: 280,
-        chatCornerRadius: 24,
+        overlayWidth: 240,
+        overlayHeight: 200,
+        chatCornerRadius: 16,
       },
     },
   };
@@ -124,27 +124,6 @@ async function requestAccessibilityPermissionsIfNeeded(): Promise<boolean> {
     tray?.setToolTip('MindGate Productivity Assistant');
   }
   return granted;
-}
-
-function getOverlayPosition(config: Configuration): { x: number; y: number } {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { bounds } = primaryDisplay;
-  const width = config.theme.dimensions.overlayWidth;
-  const height = config.theme.dimensions.overlayHeight;
-  const xOffset = config.theme.dimensions.overlayXOffset;
-  const yOffset = config.theme.dimensions.overlayYOffset;
-
-  if (xOffset !== undefined && yOffset !== undefined) {
-    return {
-      x: Math.round(bounds.x + xOffset),
-      y: Math.round(bounds.y + yOffset),
-    };
-  }
-
-  return {
-    x: Math.round(bounds.x + (bounds.width - width) / 2),
-    y: Math.round(bounds.y + (bounds.height - height) / 2),
-  };
 }
 
 async function initialize() {
@@ -178,14 +157,15 @@ async function initialize() {
 }
 
 async function createWindows(): Promise<void> {
-  const config = configurationService.getConfiguration();
-  const { x, y } = getOverlayPosition(config);
+   const config = configurationService.getConfiguration();
+   const primaryDisplay = screen.getPrimaryDisplay();
+   const { bounds } = primaryDisplay;
 
-  overlayWindow = new BrowserWindow({
-    x,
-    y,
-    width: config.theme.dimensions.overlayWidth,
-    height: config.theme.dimensions.overlayHeight,
+   overlayWindow = new BrowserWindow({
+     x: Math.round(bounds.x + 12),
+     y: Math.round(bounds.y + 12),
+     width: config.theme.dimensions.overlayWidth,
+     height: config.theme.dimensions.overlayHeight,
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,

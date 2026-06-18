@@ -167,7 +167,6 @@ const App: React.FC = () => {
 <LiquidGlassOverlay
         ref={overlayRef}
         configuration={cfg}
-        ollamaConnected={isOllamaConnected}
         onClose={handleClose}
        />
     </ErrorBoundary>

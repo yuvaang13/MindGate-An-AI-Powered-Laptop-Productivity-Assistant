@@ -26,33 +26,15 @@ export class WindowManager {
     return this.targetApp;
   }
 
-  private getOverlayPosition(width: number, height: number): { x: number; y: number } {
+  createOverlayWindow(): BrowserWindow {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { bounds } = primaryDisplay;
-    const xOffset = this.configuration.theme.dimensions.overlayXOffset;
-    const yOffset = this.configuration.theme.dimensions.overlayYOffset;
-
-    if (xOffset !== undefined && yOffset !== undefined) {
-      return {
-        x: Math.round(bounds.x + xOffset),
-        y: Math.round(bounds.y + yOffset),
-      };
-    }
-
-    return {
-      x: Math.round(bounds.x + (bounds.width - width) / 2),
-      y: Math.round(bounds.y + (bounds.height - height) / 2),
-    };
-  }
-
-  createOverlayWindow(): BrowserWindow {
-    const width = this.configuration.theme.dimensions.overlayWidth ?? 280;
-    const height = this.configuration.theme.dimensions.overlayHeight ?? 280;
-    const { x, y } = this.getOverlayPosition(width, height);
+    const width = this.configuration.theme.dimensions.overlayWidth ?? 240;
+    const height = this.configuration.theme.dimensions.overlayHeight ?? 200;
 
     this.overlayWindow = new BrowserWindow({
-      x,
-      y,
+      x: Math.round(bounds.x + 12),
+      y: Math.round(bounds.y + 12),
       width,
       height,
       transparent: true,
@@ -78,22 +60,10 @@ export class WindowManager {
   }
 
   showOverlay() {
-    const width = this.configuration.theme.dimensions.overlayWidth ?? 280;
-    const height = this.configuration.theme.dimensions.overlayHeight ?? 280;
-    const { x, y } = this.getOverlayPosition(width, height);
-
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      this.overlayWindow.setPosition(x, y);
-      this.overlayWindow.setSize(width, height);
       this.overlayWindow.show();
       this.overlayWindow.focus();
-      this.overlayWindow.moveTop();
-      this.overlayWindow.setAlwaysOnTop(true);
-      this.overlayWindow.setVisibleOnAllWorkspaces(false);
-      this.overlayWindow.setFullScreenable(false);
       this.focusOverlayInput();
-      setTimeout(() => this.focusOverlayInput(), 100);
-      setTimeout(() => this.focusOverlayInput(), 250);
     }
   }
 
