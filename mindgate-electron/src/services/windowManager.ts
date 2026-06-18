@@ -37,8 +37,8 @@ export class WindowManager {
       y: Math.round(bounds.y + 12),
       width,
       height,
-      transparent: true,
-      backgroundColor: '#00000000',
+      transparent: false,
+      backgroundColor: '#19191e',
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
@@ -63,6 +63,7 @@ export class WindowManager {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       this.overlayWindow.show();
       this.overlayWindow.focus();
+      this.overlayWindow.moveTop();
       this.focusOverlayInput();
     }
   }

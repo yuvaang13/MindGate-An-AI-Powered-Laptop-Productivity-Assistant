@@ -161,13 +161,13 @@ async function createWindows(): Promise<void> {
    const primaryDisplay = screen.getPrimaryDisplay();
    const { bounds } = primaryDisplay;
 
-   overlayWindow = new BrowserWindow({
-     x: Math.round(bounds.x + 12),
-     y: Math.round(bounds.y + 12),
-     width: config.theme.dimensions.overlayWidth,
-     height: config.theme.dimensions.overlayHeight,
-    transparent: true,
-    backgroundColor: '#00000000',
+overlayWindow = new BrowserWindow({
+    x: Math.round(bounds.x + 12),
+    y: Math.round(bounds.y + 12),
+    width: config.theme.dimensions.overlayWidth,
+    height: config.theme.dimensions.overlayHeight,
+    transparent: false,
+    backgroundColor: '#19191e',
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
