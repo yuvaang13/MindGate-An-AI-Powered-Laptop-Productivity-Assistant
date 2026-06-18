@@ -353,6 +353,8 @@ ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
     return configurationService.getConfiguration();
   });
 
+  ipcMain.handle('bridge-ping', () => true);
+
   ipcMain.handle('hide-overlay', () => {
     if (!windowManager) return;
     windowManager.hideOverlay();

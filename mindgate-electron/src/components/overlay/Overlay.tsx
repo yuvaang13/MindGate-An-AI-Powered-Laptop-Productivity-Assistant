@@ -87,12 +87,15 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     }
   }, [state, remainingAccessTime]);
 
-  const showRetryMessage = async (message: string) => {
+  const showRetryMessage = async (message: string, inputToRestore = '') => {
     setIsAiThinking(false);
     setMessages((prev) => [
       ...prev,
       { role: 'ai', content: message, timestamp: Date.now() },
     ]);
+    if (inputToRestore) {
+      setUserInput(inputToRestore);
+    }
     setState('chat');
     setIsInputDisabled(false);
     focusInput();
@@ -102,29 +105,43 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     if (!userInput.trim() || isInputDisabled) return;
     
     const input = userInput.trim();
-    setUserInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: input, timestamp: Date.now() }]);
     setIsInputDisabled(true);
     setIsAiThinking(true);
     setState('loading');
 
     const api = await waitForMindgateAPI(8000);
     if (!api) {
-      await showRetryMessage('MindGate is not ready yet. Please try again in a moment.');
+      await showRetryMessage('MindGate is not ready yet. Please try again in a moment.', input);
       return;
     }
 
     try {
+      await api.ping();
+    } catch (e) {
+      console.warn('[Overlay] bridge ping failed:', e);
+      await showRetryMessage('MindGate is not responding yet. Please try again in a moment.', input);
+      return;
+    }
+
+    setUserInput('');
+    setMessages((prev) => [...prev, { role: 'user', content: input, timestamp: Date.now() }]);
+
+    try {
       const result = await api.sendChatMessage(input);
       if (!result?.message) {
-        await showRetryMessage('MindGate did not respond. Please try again.');
+        await showRetryMessage('MindGate did not respond. Please try again.', input);
         return;
       }
 
       setIsAiThinking(false);
 
+      if (result.isApproved === null && isConnectionMessage(result.message)) {
+        await showRetryMessage(result.message, input);
+        return;
+      }
+
       if (result.isApproved === false && isConnectionMessage(result.message)) {
-        await showRetryMessage(result.message);
+        await showRetryMessage(result.message, input);
         return;
       }
 
@@ -163,7 +180,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       const friendlyMessage = errorMsg === 'Bridge unavailable'
         ? 'MindGate is not ready yet. Please try again in a moment.'
         : `Connection error: ${errorMsg}. Please try again.`;
-      await showRetryMessage(friendlyMessage);
+      await showRetryMessage(friendlyMessage, input);
     }
   };
 

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   checkAccessibilityPermission: () => ipcRenderer.invoke('check-accessibility-permission'),
   requestAccessibilityPermission: () => ipcRenderer.invoke('request-accessibility-permission'),
   grantAccess: (durationSeconds: number) => ipcRenderer.invoke('grant-access', durationSeconds),
+  ping: () => ipcRenderer.invoke('bridge-ping'),
 
   onOllamaStatusChanged: (callback: (connected: boolean) => void) => {
     const handler = (_event: unknown, connected: boolean) => callback(connected);
@@ -27,6 +28,7 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
 
 // Set bridge ready flag - this is synchronous
 (window as unknown as { __MINDGATE_BRIDGE_READY__: boolean }).__MINDGATE_BRIDGE_READY__ = true;
+ipcRenderer.send('preload-ready');
 
 declare global {
   interface Window {
@@ -53,6 +55,7 @@ declare global {
       launchApp: (appName: string) => Promise<void>;
       debugShowOverlay: () => Promise<boolean>;
       getAvailableModels: () => Promise<string[]>;
+      ping: () => Promise<boolean>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };
     __MINDGATE_BRIDGE_READY__: boolean;

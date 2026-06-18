@@ -25,6 +25,7 @@ declare global {
       launchApp: (appName: string) => Promise<void>;
       debugShowOverlay: () => Promise<boolean>;
       getAvailableModels: () => Promise<string[]>;
+      ping: () => Promise<boolean>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };
     __MINDGATE_BRIDGE_READY__: boolean;
