@@ -58,7 +58,7 @@ const defaultConfig: Configuration = {
       warning: '#ffd166',
     },
     animation: { transitionDuration: 0.25, overlayFadeDuration: 0.25 },
-    dimensions: { overlayWidth: 360, overlayHeight: 420, chatCornerRadius: 24 },
+    dimensions: { overlayWidth: 330, overlayHeight: 380, chatCornerRadius: 24 },
   },
 };
 

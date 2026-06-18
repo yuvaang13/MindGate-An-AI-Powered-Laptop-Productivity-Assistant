@@ -63,10 +63,12 @@ export class ConfigurationService {
     if (typeof config.settings.justificationCountdownDuration !== 'number' || config.settings.justificationCountdownDuration <= 0) {
       config.settings.justificationCountdownDuration = defaults.settings.justificationCountdownDuration;
     }
-    if (typeof config.theme.dimensions.overlayWidth !== 'number' || config.theme.dimensions.overlayWidth < 320 || config.theme.dimensions.overlayWidth > 420) {
+    const legacyOverlayWidths = new Set([240, 360]);
+    const legacyOverlayHeights = new Set([200, 420]);
+    if (legacyOverlayWidths.has(config.theme.dimensions.overlayWidth) || typeof config.theme.dimensions.overlayWidth !== 'number' || config.theme.dimensions.overlayWidth < 300 || config.theme.dimensions.overlayWidth > 360) {
       config.theme.dimensions.overlayWidth = defaults.theme.dimensions.overlayWidth;
     }
-    if (typeof config.theme.dimensions.overlayHeight !== 'number' || config.theme.dimensions.overlayHeight < 360 || config.theme.dimensions.overlayHeight > 520) {
+    if (legacyOverlayHeights.has(config.theme.dimensions.overlayHeight) || typeof config.theme.dimensions.overlayHeight !== 'number' || config.theme.dimensions.overlayHeight < 320 || config.theme.dimensions.overlayHeight > 430) {
       config.theme.dimensions.overlayHeight = defaults.theme.dimensions.overlayHeight;
     }
     const legacyBlack = new Set(['#000', '#000000']);
@@ -183,8 +185,8 @@ export class ConfigurationService {
           overlayFadeDuration: 0.25,
         },
         dimensions: {
-          overlayWidth: 360,
-          overlayHeight: 420,
+          overlayWidth: 330,
+          overlayHeight: 380,
           chatCornerRadius: 24,
         }
 

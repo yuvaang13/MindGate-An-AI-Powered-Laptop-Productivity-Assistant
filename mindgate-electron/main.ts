@@ -91,8 +91,8 @@ function getDefaultConfiguration(): Configuration {
         overlayFadeDuration: 0.25,
       },
       dimensions: {
-        overlayWidth: 360,
-        overlayHeight: 420,
+        overlayWidth: 330,
+        overlayHeight: 380,
         chatCornerRadius: 24,
       },
     },

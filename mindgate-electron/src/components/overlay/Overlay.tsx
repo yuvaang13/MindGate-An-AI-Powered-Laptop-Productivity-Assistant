@@ -18,10 +18,10 @@ type OverlayState = 'chat' | 'loading' | 'approved' | 'denied' | 'takeover';
 
 const DEFAULT_FIRST_MESSAGE = 'What do you need access for?';
 const APPROVAL_DISPLAY_MS = 2000;
-const BRIDGE_STARTING_MESSAGE = 'MindGate is starting...';
+const BRIDGE_CONNECTING_MESSAGE = 'MindGate is connecting...';
 
 const isConnectionMessage = (message: string) => {
-  return /connection|ollama|starting|unavailable|not ready|try again/i.test(message);
+  return /connection|ollama|starting|unavailable|not ready|try again|connecting/i.test(message);
 };
 
 export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({ 
@@ -36,7 +36,6 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   const [isInputDisabled, setIsInputDisabled] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [bridgeReady, setBridgeReady] = useState(false);
-  const [bridgeMessage, setBridgeMessage] = useState(BRIDGE_STARTING_MESSAGE);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -49,7 +48,6 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       if (!mounted) return;
 
       setBridgeReady(Boolean(api));
-      setBridgeMessage(api ? '' : BRIDGE_STARTING_MESSAGE);
     };
 
     void initializeBridge();
@@ -118,17 +116,11 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     ]);
     setState('chat');
     setIsInputDisabled(false);
-    setBridgeMessage('');
     focusInput();
   };
 
   const handleSubmit = async () => {
     if (!userInput.trim() || isInputDisabled) return;
-
-    if (!bridgeReady) {
-      setBridgeMessage(BRIDGE_STARTING_MESSAGE);
-      return;
-    }
     
     const input = userInput.trim();
     setUserInput('');
@@ -136,11 +128,10 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     setIsInputDisabled(true);
     setIsAiThinking(true);
     setState('loading');
-    setBridgeMessage('');
 
-    const api = await waitForMindgateAPI(5000);
+    const api = await waitForMindgateAPI(8000);
     if (!api) {
-      await showRetryMessage('MindGate is starting. Please try again in a moment.');
+      await showRetryMessage('MindGate is still connecting. Please try again in a moment.');
       return;
     }
 
@@ -152,7 +143,6 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       }
 
       setIsAiThinking(false);
-      setBridgeMessage('');
 
       if (result.isApproved === false && isConnectionMessage(result.message)) {
         await showRetryMessage(result.message);
@@ -192,7 +182,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Unknown error';
       const friendlyMessage = errorMsg === 'Bridge unavailable'
-        ? 'MindGate is starting. Please try again in a moment.'
+        ? 'MindGate is still connecting. Please try again in a moment.'
         : `Connection error: ${errorMsg}. Please try again.`;
       await showRetryMessage(friendlyMessage);
     }
@@ -203,7 +193,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       <div className="glass-message-container">
         {messages.length === 0 ? (
           <div className="glass-empty">
-            {isAiThinking ? 'MindGate is thinking...' : (!bridgeReady ? bridgeMessage : DEFAULT_FIRST_MESSAGE)}
+            {isAiThinking ? 'MindGate is thinking...' : (!bridgeReady ? BRIDGE_CONNECTING_MESSAGE : DEFAULT_FIRST_MESSAGE)}
           </div>
         ) : (
           <MessageList messages={messages} isAiThinking={isAiThinking} />
@@ -224,15 +214,15 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
               void handleSubmit();
             }
           }}
-          placeholder={!bridgeReady ? 'MindGate is starting...' : 'Tell me why you need access...'}
+          placeholder={!bridgeReady ? 'MindGate is connecting...' : 'Tell me why you need access...'}
           className="glass-input"
-          disabled={isInputDisabled || !bridgeReady}
+          disabled={isInputDisabled}
           rows={1}
           autoFocus
         />
         <button
           onClick={() => void handleSubmit()}
-          disabled={!bridgeReady || !userInput.trim() || isInputDisabled}
+          disabled={!userInput.trim() || isInputDisabled}
           className="glass-btn"
         >
           Send
@@ -278,7 +268,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
-        padding: '16px',
+        padding: '14px',
         pointerEvents: 'auto',
         zIndex: 2147483647,
       }}
@@ -288,7 +278,6 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
           <div className="glass-title">MindGate</div>
           <div className="glass-subtitle">Focus check-in</div>
         </div>
-        {!bridgeReady && <div className="glass-status">{bridgeMessage}</div>}
       </div>
       <div className="glass-divider" />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>{renderContent()}</div>
