@@ -18,7 +18,6 @@ type OverlayState = 'chat' | 'loading' | 'approved' | 'denied' | 'takeover';
 
 const DEFAULT_FIRST_MESSAGE = 'What do you need access for?';
 const APPROVAL_DISPLAY_MS = 2000;
-const BRIDGE_CONNECTING_MESSAGE = 'MindGate is connecting...';
 
 const isConnectionMessage = (message: string) => {
   return /connection|ollama|starting|unavailable|not ready|try again|connecting/i.test(message);
@@ -29,33 +28,17 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   onClose 
 }, ref) => {
   const [state, setState] = useState<OverlayState>('chat');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    { role: 'ai', content: DEFAULT_FIRST_MESSAGE, timestamp: Date.now() },
+  ]);
   const [userInput, setUserInput] = useState('');
   const [remainingAccessTime, setRemainingAccessTime] = useState<number | null>(null);
   const [aiResponse, setAiResponse] = useState('');
   const [isInputDisabled, setIsInputDisabled] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const [bridgeReady, setBridgeReady] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const initializeBridge = async () => {
-      const api = await waitForMindgateAPI();
-      if (!mounted) return;
-
-      setBridgeReady(Boolean(api));
-    };
-
-    void initializeBridge();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -87,10 +70,6 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       focusInput();
     },
   }), []);
-
-  useEffect(() => {
-    resetChatState();
-  }, []);
 
   useEffect(() => {
     if (state === 'chat') {
@@ -131,7 +110,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
 
     const api = await waitForMindgateAPI(8000);
     if (!api) {
-      await showRetryMessage('MindGate is still connecting. Please try again in a moment.');
+      await showRetryMessage('MindGate is not ready yet. Please try again in a moment.');
       return;
     }
 
@@ -182,7 +161,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Unknown error';
       const friendlyMessage = errorMsg === 'Bridge unavailable'
-        ? 'MindGate is still connecting. Please try again in a moment.'
+        ? 'MindGate is not ready yet. Please try again in a moment.'
         : `Connection error: ${errorMsg}. Please try again.`;
       await showRetryMessage(friendlyMessage);
     }
@@ -193,7 +172,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       <div className="glass-message-container">
         {messages.length === 0 ? (
           <div className="glass-empty">
-            {isAiThinking ? 'MindGate is thinking...' : (!bridgeReady ? BRIDGE_CONNECTING_MESSAGE : DEFAULT_FIRST_MESSAGE)}
+            {isAiThinking ? 'MindGate is thinking...' : DEFAULT_FIRST_MESSAGE}
           </div>
         ) : (
           <MessageList messages={messages} isAiThinking={isAiThinking} />
@@ -214,7 +193,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
               void handleSubmit();
             }
           }}
-          placeholder={!bridgeReady ? 'MindGate is connecting...' : 'Tell me why you need access...'}
+          placeholder="Tell me why you need access..."
           className="glass-input"
           disabled={isInputDisabled}
           rows={1}

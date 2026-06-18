@@ -153,7 +153,7 @@ const App: React.FC = () => {
           top: hasPermission ? '128px' : '204px',
           right: '18px',
         }}>
-          Ollama disconnected. Start Ollama to use MindGate AI.
+          Ollama is not running. MindGate is still available, but AI responses may be unavailable.
         </div>
       )}
       <LiquidGlassOverlay
