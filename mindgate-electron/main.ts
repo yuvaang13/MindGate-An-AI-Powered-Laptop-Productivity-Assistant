@@ -314,30 +314,28 @@ function setupIPC() {
     }
   });
 
-  ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
+ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
     if (!decisionEngine) {
-      return { message: 'MindGate is initializing. Please wait...', isApproved: false };
+      return { 
+        message: 'Connection not ready. Please try again in a moment.', 
+        isApproved: false,
+      };
     }
     try {
       return await decisionEngine.sendChatMessage(userInput);
     } catch (error) {
       return {
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         isApproved: false,
       };
     }
-  });
-
-  ipcMain.handle('reset-chat', async () => {
-    if (!decisionEngine) return;
-    decisionEngine.resetChat();
   });
 
   ipcMain.handle('evaluate-request', async (_event, userInput: string) => {
     if (!decisionEngine) {
       return {
         isApproved: false,
-        message: 'MindGate is initializing. Please wait...',
+        message: 'Connection not ready. Please try again.',
       };
     }
     try {
@@ -345,9 +343,14 @@ function setupIPC() {
     } catch (error) {
       return {
         isApproved: false,
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
+  });
+
+  ipcMain.handle('reset-chat', async () => {
+    if (!decisionEngine) return;
+    decisionEngine.resetChat();
   });
 
   ipcMain.handle('grant-access', (_event, durationSeconds: number) => {
