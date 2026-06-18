@@ -42,22 +42,28 @@ npm run build
 
 log "🚀  Launching MindGate..."
 
-# Trap signals to ensure Electron is terminated when this script exits
+# Track if we're shutting down
+SHUTDOWN_IN_PROGRESS=0
+
+# Trap signals to ensure Electron and all child processes terminate when this script exits
 cleanup() {
+  if [[ "$SHUTDOWN_IN_PROGRESS" -eq 1 ]]; then
+    return
+  fi
+  SHUTDOWN_IN_PROGRESS=1
   log "🛑  Shutting down MindGate..."
   if [[ -n "${ELECTRON_PID:-}" ]]; then
-    kill -TERM "$ELECTRON_PID" 2>/dev/null || true
-    sleep 0.5
-    kill -KILL "$ELECTRON_PID" 2>/dev/null || true
-    wait "$ELECTRON_PID" 2>/dev/null || true
+    # Kill entire process group (negative PID) for complete cleanup
+    kill -TERM -"$ELECTRON_PID" 2>/dev/null || true
+    sleep 1
+    # Force kill if still running
+    kill -KILL -"$ELECTRON_PID" 2>/dev/null || true
   fi
-  # Ensure any lingering Electron processes are killed
-  pkill -f "Electron" 2>/dev/null || true
 }
 
 trap 'cleanup' EXIT INT TERM
 
-# Start Electron and keep its PID
+# Start Electron in background - process group will be killed on exit
 npx electron . &
 ELECTRON_PID=$!
 log "📱  MindGate started (PID: $ELECTRON_PID)"

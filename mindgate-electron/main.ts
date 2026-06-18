@@ -520,6 +520,12 @@ app.whenReady().then(async () => {
   await initialize();
 });
 
+app.on('before-quit', () => {
+  dbg('[Main] before-quit triggered');
+  // Ensure child processes are stopped before quit
+  workspaceMonitor?.stopMonitoring();
+});
+
 app.on('will-quit', () => {
   dbg('[Main] will-quit triggered');
   isQuitting = true;
@@ -527,7 +533,6 @@ app.on('will-quit', () => {
     clearInterval(ollamaStatusInterval);
     ollamaStatusInterval = null;
   }
-  workspaceMonitor?.stopMonitoring();
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.destroy();
   }
@@ -536,50 +541,6 @@ app.on('will-quit', () => {
   }
   tray?.destroy();
   tray = null;
-  try {
-    app.exit(0);
-  } catch (e) {
-    dbg('[Main] app.exit failed:', e);
-  }
-});
-
-// Ensure Electron quits on SIGTERM/SIGINT for proper cleanup
-process.on('SIGTERM', () => {
-  dbg('[Main] Received SIGTERM, forcing exit');
-  isQuitting = true;
-  if (ollamaStatusInterval) {
-    clearInterval(ollamaStatusInterval);
-    ollamaStatusInterval = null;
-  }
-  workspaceMonitor?.stopMonitoring();
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.destroy();
-  }
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.destroy();
-  }
-  tray?.destroy();
-  tray = null;
-  app.exit(0);
-});
-
-process.on('SIGINT', () => {
-  dbg('[Main] Received SIGINT, forcing exit');
-  isQuitting = true;
-  if (ollamaStatusInterval) {
-    clearInterval(ollamaStatusInterval);
-    ollamaStatusInterval = null;
-  }
-  workspaceMonitor?.stopMonitoring();
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.destroy();
-  }
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.destroy();
-  }
-  tray?.destroy();
-  tray = null;
-  app.exit(0);
 });
 
 app.on('activate', () => {

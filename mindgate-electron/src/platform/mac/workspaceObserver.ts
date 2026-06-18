@@ -93,15 +93,17 @@ export class WorkspaceObserver extends EventEmitter {
     }, 2000);
   }
 
-  // ── Teardown ────────────────────────────────────────────
-
   stop(): void {
     this.stopped = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
-    this.killProcess('SIGKILL');
+    this.killProcess('SIGTERM');
+    // Fallback kill after delay to ensure cleanup
+    setTimeout(() => {
+      this.killProcess('SIGKILL');
+    }, 100);
     this.removeAllListeners();
   }
 
@@ -109,8 +111,9 @@ export class WorkspaceObserver extends EventEmitter {
     if (this.process) {
       try {
         this.process.kill(signal);
+        console.log('[WorkspaceObserver] Sent', signal, 'to osascript process');
       } catch {
-        // already dead
+        console.log('[WorkspaceObserver] Process already terminated');
       }
       this.process = null;
     }
