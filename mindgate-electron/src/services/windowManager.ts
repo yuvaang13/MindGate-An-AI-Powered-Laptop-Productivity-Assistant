@@ -29,8 +29,8 @@ export class WindowManager {
   createOverlayWindow(): BrowserWindow {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { bounds } = primaryDisplay;
-    const width = this.configuration.theme.dimensions.overlayWidth ?? 240;
-    const height = this.configuration.theme.dimensions.overlayHeight ?? 200;
+    const width = this.configuration.theme.dimensions.overlayWidth ?? 360;
+    const height = this.configuration.theme.dimensions.overlayHeight ?? 420;
 
     this.overlayWindow = new BrowserWindow({
       x: Math.round(bounds.x + 12),

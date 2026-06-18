@@ -58,7 +58,7 @@ export interface ChatResponse {
 }
 
 export interface DecisionResult {
-  isApproved: boolean;
+  isApproved: boolean | null;
   message: string;
 }
 

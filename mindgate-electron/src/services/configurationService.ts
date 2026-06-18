@@ -63,11 +63,18 @@ export class ConfigurationService {
     if (typeof config.settings.justificationCountdownDuration !== 'number' || config.settings.justificationCountdownDuration <= 0) {
       config.settings.justificationCountdownDuration = defaults.settings.justificationCountdownDuration;
     }
-    if (typeof config.theme.dimensions.overlayWidth !== 'number' || config.theme.dimensions.overlayWidth <= 0) {
+    if (typeof config.theme.dimensions.overlayWidth !== 'number' || config.theme.dimensions.overlayWidth < 320 || config.theme.dimensions.overlayWidth > 420) {
       config.theme.dimensions.overlayWidth = defaults.theme.dimensions.overlayWidth;
     }
-    if (typeof config.theme.dimensions.overlayHeight !== 'number' || config.theme.dimensions.overlayHeight <= 0) {
+    if (typeof config.theme.dimensions.overlayHeight !== 'number' || config.theme.dimensions.overlayHeight < 360 || config.theme.dimensions.overlayHeight > 520) {
       config.theme.dimensions.overlayHeight = defaults.theme.dimensions.overlayHeight;
+    }
+    const legacyBlack = new Set(['#000', '#000000']);
+    if (legacyBlack.has(config.theme.colors.background)) {
+      config.theme.colors.background = defaults.theme.colors.background;
+    }
+    if (legacyBlack.has(config.theme.colors.surface)) {
+      config.theme.colors.surface = defaults.theme.colors.surface;
     }
   }
 
@@ -161,25 +168,26 @@ export class ConfigurationService {
       },
       theme: {
         colors: {
-          primary: '#FFFFFF',
-          secondary: '#FFFFFFB3',
-          accent: '#FFFFFF99',
-          background: '#000000',
-          surface: '#000000',
-          text: '#FFFFFF',
-          textSecondary: '#FFFFFFB3',
-          error: '#FF453A',
-          warning: '#FF9F0A'
+          primary: '#7ee7c9',
+          secondary: '#a8b0bd',
+          accent: '#7ee7c9',
+          background: '#111318',
+          surface: '#1b202b',
+          text: '#f4f1ea',
+          textSecondary: '#a8b0bd',
+          error: '#ff6b5f',
+          warning: '#ffd166',
         },
-animation: {
-          transitionDuration: 0.3,
-          overlayFadeDuration: 0.3
+        animation: {
+          transitionDuration: 0.25,
+          overlayFadeDuration: 0.25,
         },
         dimensions: {
-          overlayWidth: 280,
-          overlayHeight: 280,
+          overlayWidth: 360,
+          overlayHeight: 420,
           chatCornerRadius: 24,
         }
+
       }
     };
   }

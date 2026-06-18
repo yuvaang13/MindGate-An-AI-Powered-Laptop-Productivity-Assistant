@@ -76,24 +76,24 @@ function getDefaultConfiguration(): Configuration {
     },
     theme: {
       colors: {
-        primary: '#f5f5f7',
-        secondary: '#a1a1a6',
-        accent: '#34c759',
-        background: '#19191e',
-        surface: '#252528',
-        text: '#f5f5f7',
-        textSecondary: '#a1a1a6',
-        error: '#ff453a',
-        warning: '#ff9f0a',
+        primary: '#7ee7c9',
+        secondary: '#a8b0bd',
+        accent: '#7ee7c9',
+        background: '#111318',
+        surface: '#1b202b',
+        text: '#f4f1ea',
+        textSecondary: '#a8b0bd',
+        error: '#ff6b5f',
+        warning: '#ffd166',
       },
       animation: {
-        transitionDuration: 0.2,
-        overlayFadeDuration: 0.2,
+        transitionDuration: 0.25,
+        overlayFadeDuration: 0.25,
       },
       dimensions: {
-        overlayWidth: 240,
-        overlayHeight: 200,
-        chatCornerRadius: 16,
+        overlayWidth: 360,
+        overlayHeight: 420,
+        chatCornerRadius: 24,
       },
     },
   };
@@ -296,9 +296,9 @@ function setupIPC() {
 
 ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
     if (!decisionEngine) {
-      return { 
-        message: 'Connection not ready. Please try again in a moment.', 
-        isApproved: false,
+      return {
+        message: 'MindGate is still starting. Please try again in a moment.',
+        isApproved: null,
       };
     }
     try {
@@ -306,7 +306,7 @@ ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
     } catch (error) {
       return {
         message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        isApproved: false,
+        isApproved: null,
       };
     }
   });
@@ -314,7 +314,7 @@ ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
   ipcMain.handle('evaluate-request', async (_event, userInput: string) => {
     if (!decisionEngine) {
       return {
-        isApproved: false,
+        isApproved: null,
         message: 'Connection not ready. Please try again.',
       };
     }
@@ -322,7 +322,7 @@ ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
       return await decisionEngine.evaluateRequest(userInput);
     } catch (error) {
       return {
-        isApproved: false,
+        isApproved: null,
         message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }

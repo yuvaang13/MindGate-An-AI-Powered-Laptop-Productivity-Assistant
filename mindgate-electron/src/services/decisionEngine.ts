@@ -64,6 +64,14 @@ Your first message to them should be a brief, firm question asking why they need
     this.chatHistory.push({ role: 'user', content: userInput, timestamp: Date.now() });
     this.trimChatHistory();
 
+    const connectionReady = await this.checkOllamaConnection();
+    if (!connectionReady) {
+      return {
+        message: 'Ollama is not connected. Please start Ollama and try again.',
+        isApproved: null,
+      };
+    }
+
     const context = this.getDistractionContext();
     let response: string;
     try {
@@ -72,7 +80,7 @@ Your first message to them should be a brief, firm question asking why they need
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       return {
         message: `MindGate AI error: ${errorMsg}`,
-        isApproved: false,
+        isApproved: null,
       };
     }
     const cleanResponse = response.replace(/^MindGate:\s*/i, '').trim();

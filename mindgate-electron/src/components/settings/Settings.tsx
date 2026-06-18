@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Configuration } from '../../types';
+import '../../styles/glassmorphism.css';
 
 interface SettingsProps {
   configuration: Configuration | null;
@@ -23,7 +24,6 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
 
   const handleDurationChange = (index: number, value: string) => {
     const minutes = parseInt(value, 10) || 0;
-    // Only allow valid access durations (5, 10, 15 minutes in seconds)
     const validDurations = [5, 10, 15];
     const clampedMinutes = validDurations.includes(minutes) ? minutes : 10;
     const newDurations = [...settings.accessDurations];
@@ -43,28 +43,27 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
   };
 
   return (
-    <div style={{
-      padding: 20,
-      background: '#1a1a1a',
-      minHeight: '100vh',
-      color: 'white',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    }}>
-      <h1 style={{ marginTop: 0, marginBottom: 20 }}>MindGate Settings</h1>
+    <div className="settings-shell">
+      <header className="settings-header">
+        <div>
+          <h1>MindGate Settings</h1>
+          <p>Keep your focus rules simple and easy to maintain.</p>
+        </div>
+      </header>
 
       {saveMessage && (
-        <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: 'rgba(52, 199, 89, 0.2)', color: '#34c759' }}>
+        <div className="settings-message success">
           {saveMessage}
         </div>
       )}
       {saveError && (
-        <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: 'rgba(255, 59, 48, 0.2)', color: '#ff3b30' }}>
+        <div className="settings-message error">
           {saveError}
         </div>
       )}
 
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 12 }}>Distracting Apps</h2>
+      <section className="settings-section">
+        <h2>Distracting Apps</h2>
         <textarea
           value={settings.distractingApps.join('\n')}
           onChange={(e) => setSettings({
@@ -72,22 +71,12 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
             distractingApps: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
           })}
           placeholder="One app per line..."
-          style={{
-            width: '100%',
-            height: 120,
-            background: '#2a2a2a',
-            border: '1px solid #444',
-            borderRadius: 8,
-            color: 'white',
-            padding: 12,
-            fontSize: 14,
-            resize: 'none',
-          }}
+          className="settings-input textarea"
         />
       </section>
 
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 12 }}>Restricted Keywords</h2>
+      <section className="settings-section">
+        <h2>Restricted Keywords</h2>
         <textarea
           value={settings.restrictedKeywords.join('\n')}
           onChange={(e) => setSettings({
@@ -95,114 +84,66 @@ export const Settings: React.FC<SettingsProps> = ({ configuration }) => {
             restrictedKeywords: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
           })}
           placeholder="One keyword per line..."
-          style={{
-            width: '100%',
-            height: 120,
-            background: '#2a2a2a',
-            border: '1px solid #444',
-            borderRadius: 8,
-            color: 'white',
-            padding: 12,
-            fontSize: 14,
-            resize: 'none',
-          }}
+          className="settings-input textarea"
         />
       </section>
 
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 12 }}>Ollama Configuration</h2>
+      <section className="settings-section">
+        <h2>Ollama Configuration</h2>
 
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', marginBottom: 4 }}>Ollama URL</label>
+        <div className="settings-field">
+          <label htmlFor="ollama-url">Ollama URL</label>
           <input
+            id="ollama-url"
             type="text"
             value={settings.ollamaURL}
             onChange={(e) => setSettings({ ...settings, ollamaURL: e.target.value })}
-            style={{
-              width: '100%',
-              background: '#2a2a2a',
-              border: '1px solid #444',
-              borderRadius: 8,
-              color: 'white',
-              padding: 8,
-              fontSize: 14,
-            }}
+            className="settings-input"
           />
         </div>
 
-        <div>
-          <label style={{ display: 'block', marginBottom: 4 }}>Model</label>
+        <div className="settings-field">
+          <label htmlFor="ollama-model">Model</label>
           <input
+            id="ollama-model"
             type="text"
             value={settings.ollamaModel}
             onChange={(e) => setSettings({ ...settings, ollamaModel: e.target.value })}
-            style={{
-              width: '100%',
-              background: '#2a2a2a',
-              border: '1px solid #444',
-              borderRadius: 8,
-              color: 'white',
-              padding: 8,
-              fontSize: 14,
-            }}
+            className="settings-input"
           />
         </div>
       </section>
 
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 12 }}>Access Durations (seconds)</h2>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <section className="settings-section">
+        <h2>Access Durations</h2>
+        <div className="duration-grid">
           {settings.accessDurationLabels.map((label, index) => (
-            <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div key={index} className="duration-row">
               <input
                 type="number"
                 value={settings.accessDurations[index] / 60}
                 onChange={(e) => handleDurationChange(index, e.target.value)}
                 min={5}
                 max={15}
-                style={{
-                  width: 60,
-                  background: '#2a2a2a',
-                  border: '1px solid #444',
-                  borderRadius: 8,
-                  color: 'white',
-                  padding: 8,
-                  fontSize: 14,
-                }}
+                className="settings-input duration-input"
               />
-              <span>min ({label})</span>
+              <span>{label}</span>
             </div>
           ))}
         </div>
       </section>
 
-      <div style={{ display: 'flex', gap: 12 }}>
+      <div className="settings-actions">
         <button
           onClick={() => void handleSave()}
-          style={{
-            padding: '10px 20px',
-            borderRadius: 8,
-            background: '#007aff',
-            border: 'none',
-            color: 'white',
-            fontSize: 14,
-            cursor: 'pointer',
-          }}
+          className="glass-btn"
         >
           Save Settings
         </button>
 
         <button
           onClick={() => window.close()}
-          style={{
-            padding: '10px 20px',
-            borderRadius: 8,
-            background: '#444',
-            border: 'none',
-            color: 'white',
-            fontSize: 14,
-            cursor: 'pointer',
-          }}
+          className="glass-btn-secondary ghost"
         >
           Close
         </button>

@@ -19,9 +19,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
       return (
         <div style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(255,255,255,0.92)', borderRadius: '24px',
+          background: 'rgba(17, 19, 24, 0.96)', borderRadius: '24px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#1c1c1e', fontSize: '16px', padding: '24px', textAlign: 'center',
+          color: '#f4f1ea', fontSize: '15px', padding: '24px', textAlign: 'center',
           zIndex: 2147483647,
         }}>
           MindGate encountered an error. Restart the app.
@@ -46,9 +46,19 @@ const defaultConfig: Configuration = {
     justificationCountdownDuration: 20,
   },
   theme: {
-    colors: { primary: '#FFF', secondary: '#FFFFFFB3', accent: '#FFFFFF99', background: '#000', surface: '#000', text: '#FFF', textSecondary: '#FFFFFFB3', error: '#FF453A', warning: '#FF9F0A' },
-    animation: { transitionDuration: 0.3, overlayFadeDuration: 0.3 },
-    dimensions: { overlayWidth: 280, overlayHeight: 280, chatCornerRadius: 24 },
+    colors: {
+      primary: '#7ee7c9',
+      secondary: '#a8b0bd',
+      accent: '#7ee7c9',
+      background: '#111318',
+      surface: '#1b202b',
+      text: '#f4f1ea',
+      textSecondary: '#a8b0bd',
+      error: '#ff6b5f',
+      warning: '#ffd166',
+    },
+    animation: { transitionDuration: 0.25, overlayFadeDuration: 0.25 },
+    dimensions: { overlayWidth: 360, overlayHeight: 420, chatCornerRadius: 24 },
   },
 };
 
@@ -131,44 +141,26 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       {!hasPermission && (
-        <div style={{
-          position: 'fixed',
-          top: '12px',
-          right: '12px',
-          background: 'rgba(255, 69, 58, 0.9)',
-          color: 'white',
-          padding: '8px 14px',
-          borderRadius: '10px',
-          fontSize: '12px',
-          zIndex: 2147483647,
-          maxWidth: '240px',
-          lineHeight: 1.4,
+        <div className="glass-toast glass-toast-error" style={{
+          top: '18px',
+          right: '18px',
         }}>
           {permissionMessages.map((msg, i) => <div key={i}>{msg}</div>)}
         </div>
       )}
       {!isOllamaConnected && (
-        <div style={{
-          position: 'fixed',
-          top: hasPermission ? '12px' : '96px',
-          right: '12px',
-          background: 'rgba(255, 69, 58, 0.9)',
-          color: 'white',
-          padding: '8px 14px',
-          borderRadius: '10px',
-          fontSize: '13px',
-          zIndex: 2147483647,
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
+        <div className="glass-toast glass-toast-error" style={{
+          top: hasPermission ? '128px' : '204px',
+          right: '18px',
         }}>
-          Ollama Disconnected
+          Ollama disconnected. Start Ollama to use MindGate AI.
         </div>
       )}
-<LiquidGlassOverlay
+      <LiquidGlassOverlay
         ref={overlayRef}
         configuration={cfg}
         onClose={handleClose}
-       />
+      />
     </ErrorBoundary>
   );
 };
