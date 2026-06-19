@@ -1,4 +1,8 @@
-import { DecisionResult, ChatMessage } from '../types.js';
+import { DecisionResult, ChatMessage, OllamaConnectionStatus } from '../types.js';
+
+interface TagsResponse {
+  models?: Array<{ name: string }>;
+}
 
 export class OllamaService {
   private baseURL: string;
@@ -7,7 +11,7 @@ export class OllamaService {
   private baseRetryDelay: number = 1000;
   private cachedConnectionStatus: boolean | null = null;
   private cachedConnectionTime: number = 0;
-  private connectionCacheTTL: number = 10000; // 10 seconds cache
+  private connectionCacheTTL: number = 10000;
 
   constructor(baseURL: string, model: string) {
     this.baseURL = baseURL;
@@ -28,57 +32,85 @@ export class OllamaService {
   }
 
   async checkConnection(): Promise<boolean> {
-    // Return cached status if still valid
     const now = Date.now();
     if (this.cachedConnectionStatus !== null && now - this.cachedConnectionTime < this.connectionCacheTTL) {
       return this.cachedConnectionStatus;
     }
 
+    const status = await this.getConnectionStatus();
+    return status.connected;
+  }
+
+  async getConnectionStatus(): Promise<OllamaConnectionStatus> {
+    const status = await this.fetchConnectionStatus();
+    this.cachedConnectionStatus = status.connected;
+    this.cachedConnectionTime = Date.now();
+    return status;
+  }
+
+  private async fetchConnectionStatus(): Promise<OllamaConnectionStatus> {
+    const origin = this.getApiOrigin();
+    const configuredModel = this.model;
+
     try {
-      const tagsOk = await this.checkTagsEndpoint();
-      if (!tagsOk) {
-        this.cachedConnectionStatus = false;
-        this.cachedConnectionTime = now;
-        return false;
+      const data = await this.fetchTags();
+      const availableModels = (data.models || []).map((m) => m.name);
+      const modelAvailable = availableModels.some((m) => this.modelMatches(m, configuredModel));
+
+      if (modelAvailable) {
+        return {
+          connected: true,
+          message: 'Ollama is ready.',
+          origin,
+          configuredModel,
+          activeModel: configuredModel,
+          modelAvailable: true,
+          availableModels,
+        };
       }
-      const modelExists = await this.checkModelExists();
-      if (!modelExists) {
-        const fallback = await this.getBestAvailableModel();
-        if (fallback) {
-          console.log('[Ollama] Falling back to model:', fallback);
-          this.model = fallback;
-        }
-        this.cachedConnectionStatus = fallback !== null;
-        this.cachedConnectionTime = now;
-        return fallback !== null;
+
+      const fallbackModel = this.selectBestAvailableModel(availableModels);
+      if (fallbackModel) {
+        this.model = fallbackModel;
+        return {
+          connected: true,
+          message: `Ollama is ready using fallback model ${fallbackModel}.`,
+          origin,
+          configuredModel,
+          activeModel: fallbackModel,
+          modelAvailable: false,
+          availableModels,
+        };
       }
-      this.cachedConnectionStatus = true;
-      this.cachedConnectionTime = now;
-      return true;
+
+      return {
+        connected: false,
+        message: `Ollama is reachable, but model "${configuredModel}" is not installed. Install it with: ollama pull ${configuredModel}`,
+        origin,
+        configuredModel,
+        activeModel: configuredModel,
+        modelAvailable: false,
+        availableModels,
+      };
     } catch (error) {
-      console.error('[Ollama] Connection check failed:', error);
-      this.cachedConnectionStatus = false;
-      this.cachedConnectionTime = now;
-      return false;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        connected: false,
+        message: `Ollama is not reachable at ${origin}. Start Ollama and make sure it is listening on ${origin}.`,
+        origin,
+        configuredModel,
+        activeModel: configuredModel,
+        modelAvailable: false,
+        availableModels: [],
+        error: message,
+      };
     }
   }
 
-  private async checkTagsEndpoint(): Promise<boolean> {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
-      const response = await fetch(this.getTagsUrl(), {
-        method: 'GET',
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (response.ok) {
-        this.retryCount = 0;
-      }
-      return response.ok;
-    } catch {
-      return false;
-    }
+  private async fetchTags(): Promise<TagsResponse> {
+    const data = await this.fetchJson<TagsResponse>(this.getTagsUrl(), 2000);
+    this.retryCount = 0;
+    return data;
   }
 
   private modelMatches(available: string, requested: string): boolean {
@@ -90,43 +122,16 @@ export class OllamaService {
     return availableTag === requestedTag;
   }
 
-  private async checkModelExists(): Promise<boolean> {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
-      const response = await fetch(this.getTagsUrl(), {
-        method: 'GET',
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (!response.ok) return false;
-      const data = (await response.json()) as { models?: Array<{ name: string }> };
-      const models = data.models || [];
-      return models.some((m) => this.modelMatches(m.name, this.model));
-    } catch {
-      return false;
-    }
-  }
-
   async getAvailableModels(): Promise<string[]> {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(this.getTagsUrl(), {
-        method: 'GET',
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (!response.ok) return [];
-      const data = (await response.json()) as { models?: Array<{ name: string }> };
+      const data = await this.fetchTags();
       return (data.models || []).map((m) => m.name);
     } catch {
       return [];
     }
   }
 
-  async getBestAvailableModel(): Promise<string | null> {
-    const models = await this.getAvailableModels();
+  private selectBestAvailableModel(models: string[]): string | null {
     if (models.length === 0) return null;
     const preferred = ['gemma3', 'llama3', 'llama', 'mistral', 'mixtral', 'phi', 'qwen', 'mathstral'];
     for (const name of preferred) {
@@ -137,6 +142,10 @@ export class OllamaService {
       if (match) return match;
     }
     return models[0];
+  }
+
+  async getBestAvailableModel(): Promise<string | null> {
+    return this.selectBestAvailableModel(await this.getAvailableModels());
   }
 
   private getRetryDelay(): number {
@@ -163,25 +172,10 @@ export class OllamaService {
   }
 
   async evaluateRequest(userInput: string): Promise<DecisionResult> {
+    const systemPrompt = `Evaluate this request for distraction access: "${userInput}". Is this a valid, productive reason? Respond with JSON containing isApproved (true/false) and a brief message explaining the decision.`;
+
     try {
-      const response = await fetch(this.baseURL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.model,
-          prompt: `Evaluate this request for distraction access: "${userInput}". Is this a valid, productive reason? Respond with JSON containing isApproved (true/false) and a brief message explaining the decision.`,
-          stream: false,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = (await response.json()) as { response?: string; message?: string };
-      const responseText = data.response || data.message || '';
+      const responseText = await this.generateRawResponse(systemPrompt);
 
       try {
         const parsed = JSON.parse(responseText);
@@ -211,9 +205,10 @@ export class OllamaService {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
         const response = await fetch(this.baseURL, {
           method: 'POST',
           headers: {
@@ -230,14 +225,19 @@ export class OllamaService {
             },
           }),
         });
-        clearTimeout(timeout);
+        const body = await response.text();
 
         if (!response.ok) {
-          const body = await response.text().catch(() => '');
           throw new Error(`HTTP ${response.status}: ${body.slice(0, 200)}`);
         }
 
-        const data = (await response.json()) as { response?: string };
+        let data: { response?: string };
+        try {
+          data = JSON.parse(body);
+        } catch {
+          throw new Error('Ollama returned an invalid JSON response');
+        }
+
         this.retryCount = 0;
         return (data.response || '').trim();
       } catch (error) {
@@ -247,15 +247,40 @@ export class OllamaService {
           const delay = this.getRetryDelay();
           await this.sleep(delay);
         }
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
     throw lastError ?? new Error('Ollama request failed');
   }
 
+  private async fetchJson<T>(url: string, timeoutMs: number): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return (await response.json()) as T;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   updateConfig(baseURL: string, model: string): void {
     this.baseURL = baseURL;
     this.model = model;
+    this.retryCount = 0;
+    this.cachedConnectionStatus = null;
+    this.cachedConnectionTime = 0;
   }
 
   async chat(messages: ChatMessage[], distractionContext?: string): Promise<string> {

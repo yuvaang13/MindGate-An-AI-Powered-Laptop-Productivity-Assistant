@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, ErrorInfo } from 'react';
-import { Configuration } from './types';
+import { Configuration } from './types.js';
 import './styles/glassmorphism.css';
-import { LiquidGlassOverlay, OverlayHandle } from './components/overlay/Overlay';
+import { LiquidGlassOverlay, OverlayHandle } from './components/overlay/Overlay.js';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {

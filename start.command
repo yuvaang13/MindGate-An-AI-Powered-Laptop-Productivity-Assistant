@@ -3,6 +3,7 @@
 
 set -euo pipefail
 IFS=$'\n\t'
+unset ELECTRON_RUN_AS_NODE
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"

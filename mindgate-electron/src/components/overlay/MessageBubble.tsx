@@ -1,4 +1,4 @@
-import { ChatMessage } from '../../types';
+import { ChatMessage } from '../../types.js';
 import '../../styles/glassmorphism.css';
 
 interface MessageBubbleProps {

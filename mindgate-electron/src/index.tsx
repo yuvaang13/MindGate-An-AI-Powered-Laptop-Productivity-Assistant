@@ -1,9 +1,9 @@
 import './index.css';
 import { useEffect, useState, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
-import { Settings } from './components/settings/Settings';
-import type { Configuration } from './types';
+import App from './App.js';
+import { Settings } from './components/settings/Settings.js';
+import type { Configuration } from './types.js';
 
 const urlParams = new URLSearchParams(window.location.search);
 const isSettingsWindow = urlParams.get('settings') === 'true';

@@ -62,6 +62,25 @@ export interface DecisionResult {
   message: string;
 }
 
+export interface OllamaConnectionStatus {
+  connected: boolean;
+  message: string;
+  origin: string;
+  configuredModel: string;
+  activeModel: string;
+  modelAvailable: boolean;
+  availableModels: string[];
+  error?: string;
+}
+
+export interface BridgeStatus {
+  ready: boolean;
+  configuration: boolean;
+  decisionEngine: boolean;
+  windowManager: boolean;
+  workspaceMonitor: boolean;
+}
+
 export interface ActiveWindowInfo {
   processName: string;
   windowTitle: string;

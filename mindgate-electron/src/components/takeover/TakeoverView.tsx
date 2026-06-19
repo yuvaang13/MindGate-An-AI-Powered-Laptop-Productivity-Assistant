@@ -1,4 +1,4 @@
-import { Configuration } from '../../types';
+import { Configuration } from '../../types.js';
 import '../../styles/glassmorphism.css';
 
 interface TakeoverViewProps {

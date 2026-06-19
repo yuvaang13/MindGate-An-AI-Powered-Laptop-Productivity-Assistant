@@ -16,8 +16,7 @@ export function getRendererIndexPath(): string {
 }
 
 export function getTrayIconPath(): string {
-  // Use brain icon - SVG for minimalist appearance
-  return join(getAppRoot(), 'assets', 'tray-icon-brain.svg');
+  return join(getAppRoot(), 'assets', process.platform === 'darwin' ? 'tray-icon-mac-22.png' : 'tray-icon-mac.png');
 }
 
 /** Resolve __dirname equivalent for ESM modules in the main process. */

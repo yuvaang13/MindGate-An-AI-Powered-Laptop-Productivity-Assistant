@@ -1,5 +1,5 @@
 import { OllamaService } from './ollamaService.js';
-import { ActiveWindowInfo, ChatMessage, ChatResponse, Configuration } from '../types.js';
+import { ActiveWindowInfo, ChatMessage, ChatResponse, Configuration, OllamaConnectionStatus } from '../types.js';
 
 const MAX_CHAT_HISTORY = 40;
 
@@ -24,6 +24,10 @@ export class DecisionEngine {
 
   async checkOllamaConnection(): Promise<boolean> {
     return this.ollamaService.checkConnection();
+  }
+
+  async getOllamaConnectionStatus(): Promise<OllamaConnectionStatus> {
+    return this.ollamaService.getConnectionStatus();
   }
 
   async getAvailableModels(): Promise<string[]> {
@@ -64,10 +68,10 @@ Your first message to them should be a brief, firm question asking why they need
     this.chatHistory.push({ role: 'user', content: userInput, timestamp: Date.now() });
     this.trimChatHistory();
 
-    const connectionReady = await this.checkOllamaConnection();
-    if (!connectionReady) {
+    const ollamaStatus = await this.getOllamaConnectionStatus();
+    if (!ollamaStatus.connected) {
       return {
-        message: 'Ollama is not connected. Please start Ollama and try again.',
+        message: ollamaStatus.message,
         isApproved: null,
       };
     }
@@ -134,6 +138,14 @@ Current productive apps: ${this.configuration.settings.productiveApps.join(', ')
 `;
 
     try {
+      const ollamaStatus = await this.getOllamaConnectionStatus();
+      if (!ollamaStatus.connected) {
+        return {
+          isApproved: false,
+          message: ollamaStatus.message,
+        };
+      }
+
       const response = await this.ollamaService.generateRawResponse(systemPrompt);
       const isApproved = response.trim().toUpperCase().startsWith('YES');
       const message = isApproved

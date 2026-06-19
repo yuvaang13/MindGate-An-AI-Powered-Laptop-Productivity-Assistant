@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Configuration, ChatMessage } from '../../types';
-import { TakeoverView } from '../takeover/TakeoverView';
-import { MessageList } from './MessageBubble';
-import { waitForMindgateAPI } from '../../utils/bridge';
+import { Configuration, ChatMessage } from '../../types.js';
+import { TakeoverView } from '../takeover/TakeoverView.js';
+import { MessageList } from './MessageBubble.js';
+import { waitForBridgeStatus, waitForMindgateAPI } from '../../utils/bridge.js';
 import '../../styles/glassmorphism.css';
 
 export interface OverlayHandle {
@@ -109,17 +109,33 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     setIsAiThinking(true);
     setState('loading');
 
-    const api = await waitForMindgateAPI(8000);
+    const api = await waitForMindgateAPI(12000);
     if (!api) {
-      await showRetryMessage('MindGate is not ready yet. Please try again in a moment.', input);
+      await showRetryMessage('MindGate is still loading. Please try again in a moment.', input);
       return;
     }
 
     try {
-      await api.ping();
+      const pingResult = await api.ping();
+      if (!pingResult) {
+        await showRetryMessage('MindGate main process is still starting. Please try again in a moment.', input);
+        return;
+      }
+
+      const bridgeStatus = await waitForBridgeStatus(3000);
+      if (bridgeStatus && !bridgeStatus.ready) {
+        const missing = [
+          !bridgeStatus.configuration && 'configuration',
+          !bridgeStatus.decisionEngine && 'AI engine',
+          !bridgeStatus.windowManager && 'window manager',
+          !bridgeStatus.workspaceMonitor && 'workspace monitor',
+        ].filter(Boolean).join(', ');
+        await showRetryMessage(`MindGate is still starting (${missing}). Please try again in a moment.`, input);
+        return;
+      }
     } catch (e) {
-      console.warn('[Overlay] bridge ping failed:', e);
-      await showRetryMessage('MindGate is not responding yet. Please try again in a moment.', input);
+      console.warn('[Overlay] bridge readiness check failed:', e);
+      await showRetryMessage('MindGate bridge is not responding yet. Please try again in a moment.', input);
       return;
     }
 
@@ -177,9 +193,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Unknown error';
-      const friendlyMessage = errorMsg === 'Bridge unavailable'
-        ? 'MindGate is not ready yet. Please try again in a moment.'
-        : `Connection error: ${errorMsg}. Please try again.`;
+      const friendlyMessage = `Connection error: ${errorMsg}. Please try again.`;
       await showRetryMessage(friendlyMessage, input);
     }
   };

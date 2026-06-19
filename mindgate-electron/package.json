@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsc -p tsconfig.main.json && concurrently \"npm run dev:renderer\" \"npm run dev:main:watch\" \"npm run dev:electron\"",
     "dev:main:watch": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
-    "dev:electron": "wait-on http://localhost:3000 dist-electron/main.js && electron .",
+    "dev:electron": "wait-on http://localhost:3000 dist-electron/main.js && node scripts/run-electron.mjs",
     "dev:renderer": "vite",
     "build": "tsc -p tsconfig.main.json && vite build",
     "preview": "vite preview",

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Configuration } from '../../types';
+import { Configuration } from '../../types.js';
 import '../../styles/glassmorphism.css';
 
 interface SettingsProps {

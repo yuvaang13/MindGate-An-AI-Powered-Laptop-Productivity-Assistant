@@ -8,7 +8,7 @@ import { WorkspaceMonitor } from './src/services/workspaceMonitor.js';
 import { WindowManager } from './src/services/windowManager.js';
 import { SystemMonitor } from './src/services/platformWrapper.js';
 import { getPreloadPath, getRendererIndexPath, getTrayIconPath } from './src/utils/appPaths.js';
-import type { ActiveWindowInfo, Configuration } from './src/types.js';
+import type { ActiveWindowInfo, BridgeStatus, Configuration, OllamaConnectionStatus } from './src/types.js';
 
 const logPath = join(tmpdir(), 'mindgate-debug.log');
 try { writeFileSync(logPath, ''); } catch { /* ignore */ }
@@ -96,6 +96,16 @@ function getDefaultConfiguration(): Configuration {
         chatCornerRadius: 24,
       },
     },
+  };
+}
+
+function getBridgeStatus(): BridgeStatus {
+  return {
+    ready: Boolean(configurationService && decisionEngine && windowManager && workspaceMonitor),
+    configuration: Boolean(configurationService),
+    decisionEngine: Boolean(decisionEngine),
+    windowManager: Boolean(windowManager),
+    workspaceMonitor: Boolean(workspaceMonitor),
   };
 }
 
@@ -353,11 +363,34 @@ ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
     return configurationService.getConfiguration();
   });
 
-  ipcMain.handle('bridge-ping', () => true);
+  ipcMain.handle('bridge-ping', () => getBridgeStatus().ready);
+
+  ipcMain.handle('get-bridge-status', () => getBridgeStatus());
+
+  ipcMain.handle('get-ollama-connection-status', async (): Promise<OllamaConnectionStatus> => {
+    if (!decisionEngine) {
+      return {
+        connected: false,
+        message: 'MindGate is still starting. Please try again in a moment.',
+        origin: 'http://localhost:11434',
+        configuredModel: 'gemma3:1b',
+        activeModel: 'gemma3:1b',
+        modelAvailable: false,
+        availableModels: [],
+      };
+    }
+    return decisionEngine.getOllamaConnectionStatus();
+  });
 
   ipcMain.handle('hide-overlay', () => {
     if (!windowManager) return;
     windowManager.hideOverlay();
+  });
+
+  ipcMain.handle('debug-show-overlay', () => {
+    if (!windowManager) return false;
+    windowManager.showOverlay();
+    return true;
   });
 
   ipcMain.handle('close-distraction', async () => {

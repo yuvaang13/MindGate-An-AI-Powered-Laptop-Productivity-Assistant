@@ -1,3 +1,5 @@
+import type { BridgeStatus } from '../types.js';
+
 export interface MindgateBridgeStatus {
   hasApi: boolean;
   hasReadyFlag: boolean;
@@ -19,6 +21,7 @@ export const waitForMindgateAPI = async (
   intervalMs = 100,
 ): Promise<Window['mindgateAPI'] | null> => {
   const startedAt = Date.now();
+  let warnedAboutReadyWithoutApi = false;
 
   while (Date.now() - startedAt <= timeoutMs) {
     const status = getMindgateBridgeStatus();
@@ -27,14 +30,29 @@ export const waitForMindgateAPI = async (
       return window.mindgateAPI;
     }
 
-    if (status.hasReadyFlag && !status.hasApi) {
-      console.warn('[Bridge] Preload ran but mindgateAPI is unavailable:', status);
-      return null;
+    if (status.hasReadyFlag && !status.hasApi && !warnedAboutReadyWithoutApi) {
+      warnedAboutReadyWithoutApi = true;
+      console.warn('[Bridge] Preload ran, waiting for mindgateAPI:', status);
     }
 
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 
-  console.warn('[Bridge] mindgateAPI unavailable:', getMindgateBridgeStatus());
+  console.warn('[Bridge] mindgateAPI unavailable after timeout:', getMindgateBridgeStatus());
   return null;
+};
+
+export const waitForBridgeStatus = async (
+  timeoutMs = 5000,
+  intervalMs = 100,
+): Promise<BridgeStatus | null> => {
+  const api = await waitForMindgateAPI(timeoutMs, intervalMs);
+  if (!api?.getBridgeStatus) return null;
+
+  try {
+    return await api.getBridgeStatus();
+  } catch (error) {
+    console.warn('[Bridge] bridge status check failed:', error);
+    return null;
+  }
 };
