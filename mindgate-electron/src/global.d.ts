@@ -1,4 +1,4 @@
-import type { BridgeStatus, ChatResponse, Configuration, OllamaConnectionStatus } from './types.js';
+import type { AIReadinessStatus, BridgeStatus, ChatResponse, Configuration, OllamaConnectionStatus } from './types.js';
 
 declare global {
   interface Window {
@@ -23,6 +23,7 @@ declare global {
       getAvailableModels: () => Promise<string[]>;
       ping: () => Promise<boolean>;
       getBridgeStatus: () => Promise<BridgeStatus>;
+      getAiReadinessStatus: () => Promise<AIReadinessStatus>;
       getOllamaConnectionStatus: () => Promise<OllamaConnectionStatus>;
       onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
     };

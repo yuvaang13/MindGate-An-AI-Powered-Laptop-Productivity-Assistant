@@ -100,12 +100,29 @@ function getDefaultConfiguration(): Configuration {
 }
 
 function getBridgeStatus(): BridgeStatus {
+  const bridgeReady = Boolean(configurationService && decisionEngine && windowManager && workspaceMonitor);
+  const ai = decisionEngine?.getAIReadinessStatus(bridgeReady) ?? {
+    ready: false,
+    bridgeReady,
+    ollamaReachable: false,
+    modelReady: false,
+    warmupReady: false,
+    message: 'MindGate AI is starting.',
+    elapsedMs: 0,
+    startedAt: Date.now(),
+    origin: 'http://localhost:11434',
+    configuredModel: 'gemma3:1b',
+    activeModel: 'gemma3:1b',
+  };
+
   return {
-    ready: Boolean(configurationService && decisionEngine && windowManager && workspaceMonitor),
+    ready: bridgeReady,
     configuration: Boolean(configurationService),
     decisionEngine: Boolean(decisionEngine),
     windowManager: Boolean(windowManager),
     workspaceMonitor: Boolean(workspaceMonitor),
+    aiReady: ai.ready,
+    ai,
   };
 }
 
@@ -154,6 +171,9 @@ async function initialize() {
 
   setupIPC();
   await createWindows();
+  void decisionEngine.initializeForLaunch(20000).catch((error) => {
+    console.error('[Main] AI launch readiness failed:', error);
+  });
   setupEventHandlers();
   createTray();
 
@@ -366,6 +386,8 @@ ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
   ipcMain.handle('bridge-ping', () => getBridgeStatus().ready);
 
   ipcMain.handle('get-bridge-status', () => getBridgeStatus());
+
+  ipcMain.handle('get-ai-readiness-status', () => getBridgeStatus().ai);
 
   ipcMain.handle('get-ollama-connection-status', async (): Promise<OllamaConnectionStatus> => {
     if (!decisionEngine) {

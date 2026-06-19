@@ -1,10 +1,14 @@
-import type { BridgeStatus } from '../types.js';
+import type { AIReadinessStatus, BridgeStatus } from '../types.js';
 
 export interface MindgateBridgeStatus {
   hasApi: boolean;
   hasReadyFlag: boolean;
   isElectron: boolean;
 }
+
+type MindgateAPI = Window['mindgateAPI'] & {
+  getAiReadinessStatus: () => Promise<AIReadinessStatus>;
+};
 
 export const getMindgateBridgeStatus = (): MindgateBridgeStatus => {
   const userAgent = window.navigator?.userAgent ?? '';
@@ -55,4 +59,34 @@ export const waitForBridgeStatus = async (
     console.warn('[Bridge] bridge status check failed:', error);
     return null;
   }
+};
+
+export const waitForAiReadiness = async (
+  timeoutMs = 30000,
+  intervalMs = 250,
+): Promise<AIReadinessStatus | null> => {
+  const startedAt = Date.now();
+  let lastStatus: AIReadinessStatus | null = null;
+  const api = await waitForMindgateAPI(Math.min(timeoutMs, 5000), intervalMs) as MindgateAPI | null;
+
+  if (!api?.getAiReadinessStatus) {
+    console.warn('[Bridge] AI readiness API unavailable after timeout:', getMindgateBridgeStatus());
+    return null;
+  }
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    try {
+      lastStatus = await api.getAiReadinessStatus();
+      if (lastStatus?.ready) {
+        return lastStatus;
+      }
+    } catch (error) {
+      console.warn('[Bridge] AI readiness status check failed:', error);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  console.warn('[Bridge] AI readiness timed out:', lastStatus);
+  return lastStatus;
 };

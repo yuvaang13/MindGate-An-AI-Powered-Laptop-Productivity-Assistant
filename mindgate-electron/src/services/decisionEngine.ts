@@ -1,7 +1,15 @@
 import { OllamaService } from './ollamaService.js';
-import { ActiveWindowInfo, ChatMessage, ChatResponse, Configuration, OllamaConnectionStatus } from '../types.js';
+import { ActiveWindowInfo, AIReadinessStatus, ChatMessage, ChatResponse, Configuration, OllamaConnectionStatus } from '../types.js';
 
 const MAX_CHAT_HISTORY = 40;
+
+function getOllamaOrigin(baseURL: string): string {
+  try {
+    return new URL(baseURL).origin;
+  } catch {
+    return baseURL.replace(/\/api\/generate\/?$/, '').replace(/\/$/, '');
+  }
+}
 
 export class DecisionEngine {
   private ollamaService: OllamaService;
@@ -10,12 +18,22 @@ export class DecisionEngine {
   private grantedAppIdentifier: string | null = null;
   private accessExpiresAt: number | null = null;
   private chatHistory: ChatMessage[] = [];
+  private aiReadinessStatus: AIReadinessStatus;
+  private aiReadinessPromise: Promise<AIReadinessStatus> | null = null;
 
   constructor(private configuration: Configuration) {
     this.ollamaService = new OllamaService(
       configuration.settings.ollamaURL,
       configuration.settings.ollamaModel
     );
+    this.aiReadinessStatus = this.createReadinessStatus({
+      ready: false,
+      bridgeReady: false,
+      ollamaReachable: false,
+      modelReady: false,
+      warmupReady: false,
+      message: 'MindGate AI is starting.',
+    });
   }
 
   setCurrentApp(app: ActiveWindowInfo): void {
@@ -32,6 +50,120 @@ export class DecisionEngine {
 
   async getAvailableModels(): Promise<string[]> {
     return this.ollamaService.getAvailableModels();
+  }
+
+  initializeForLaunch(timeoutMs = 20000): Promise<AIReadinessStatus> {
+    if (this.aiReadinessPromise) {
+      return this.aiReadinessPromise;
+    }
+
+    this.aiReadinessPromise = this.runLaunchReadiness(timeoutMs)
+      .finally(() => {
+        this.aiReadinessPromise = null;
+      });
+
+    return this.aiReadinessPromise;
+  }
+
+  getAIReadinessStatus(bridgeReady: boolean): AIReadinessStatus {
+    return {
+      ...this.aiReadinessStatus,
+      bridgeReady,
+      ready: bridgeReady && this.aiReadinessStatus.ready,
+    };
+  }
+
+  isAIReady(bridgeReady: boolean): boolean {
+    return bridgeReady && this.aiReadinessStatus.ready;
+  }
+
+  private async runLaunchReadiness(timeoutMs: number): Promise<AIReadinessStatus> {
+    const startedAt = Date.now();
+    this.aiReadinessStatus = this.createReadinessStatus({
+      elapsedMs: 0,
+      message: 'Checking Ollama connection.',
+      startedAt,
+    });
+    console.log('[DecisionEngine] Checking Ollama connection...');
+
+    try {
+      const connected = await this.ollamaService.waitForConnection(timeoutMs);
+      const ollamaStatus = await this.ollamaService.getConnectionStatus();
+
+      this.aiReadinessStatus = this.createReadinessStatus({
+        elapsedMs: Date.now() - startedAt,
+        ollamaReachable: ollamaStatus.connected,
+        modelReady: ollamaStatus.modelAvailable,
+        message: ollamaStatus.message,
+        origin: ollamaStatus.origin,
+        activeModel: ollamaStatus.activeModel,
+        startedAt,
+      });
+      console.log('[DecisionEngine] Ollama status:', ollamaStatus.message);
+
+      if (!connected || !ollamaStatus.connected) {
+        console.warn('[DecisionEngine] AI readiness blocked:', this.aiReadinessStatus.message);
+        return this.aiReadinessStatus;
+      }
+
+      this.aiReadinessStatus = this.createReadinessStatus({
+        elapsedMs: Date.now() - startedAt,
+        ollamaReachable: true,
+        modelReady: true,
+        message: 'Ollama is ready. Loading MindGate model.',
+        origin: ollamaStatus.origin,
+        activeModel: ollamaStatus.activeModel,
+        startedAt,
+      });
+      console.log('[DecisionEngine] Warming up model:', ollamaStatus.activeModel);
+
+      await this.ollamaService.warmUpModel();
+
+      this.aiReadinessStatus = this.createReadinessStatus({
+        ready: true,
+        bridgeReady: false,
+        ollamaReachable: true,
+        modelReady: true,
+        warmupReady: true,
+        elapsedMs: Date.now() - startedAt,
+        message: 'MindGate AI is ready.',
+        origin: ollamaStatus.origin,
+        activeModel: ollamaStatus.activeModel,
+        startedAt,
+      });
+      console.log('[DecisionEngine] AI readiness complete:', this.aiReadinessStatus.message);
+
+      return this.aiReadinessStatus;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.aiReadinessStatus = this.createReadinessStatus({
+        elapsedMs: Date.now() - startedAt,
+        message: `AI startup failed: ${message}`,
+        startedAt,
+      });
+      console.error('[DecisionEngine] AI readiness failed:', message);
+      return this.aiReadinessStatus;
+    }
+  }
+
+  private createReadinessStatus(overrides: Partial<AIReadinessStatus>): AIReadinessStatus {
+    const startedAt = overrides.startedAt ?? Date.now();
+    const elapsedMs = overrides.elapsedMs ?? Math.max(0, Date.now() - startedAt);
+
+    return {
+      ready: false,
+      bridgeReady: false,
+      ollamaReachable: false,
+      modelReady: false,
+      warmupReady: false,
+      message: 'MindGate AI is starting.',
+      elapsedMs,
+      startedAt,
+      origin: getOllamaOrigin(this.configuration.settings.ollamaURL),
+      configuredModel: this.configuration.settings.ollamaModel,
+      activeModel: this.configuration.settings.ollamaModel,
+      ...overrides,
+    };
   }
 
   private getDistractionContext(): string {
@@ -65,6 +197,15 @@ Your first message to them should be a brief, firm question asking why they need
   }
 
   async sendChatMessage(userInput: string): Promise<ChatResponse> {
+    if (!this.aiReadinessStatus.ready) {
+      const readiness = this.getAIReadinessStatus(true);
+      return {
+        message: readiness.message,
+        isApproved: null,
+        readiness,
+      };
+    }
+
     this.chatHistory.push({ role: 'user', content: userInput, timestamp: Date.now() });
     this.trimChatHistory();
 

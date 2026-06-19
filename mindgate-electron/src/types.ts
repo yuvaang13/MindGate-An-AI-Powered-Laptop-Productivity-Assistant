@@ -55,6 +55,7 @@ export interface ChatResponse {
   message: string;
   isApproved: boolean | null;
   durationMinutes?: number;
+  readiness?: AIReadinessStatus;
 }
 
 export interface DecisionResult {
@@ -73,12 +74,28 @@ export interface OllamaConnectionStatus {
   error?: string;
 }
 
+export interface AIReadinessStatus {
+  ready: boolean;
+  bridgeReady: boolean;
+  ollamaReachable: boolean;
+  modelReady: boolean;
+  warmupReady: boolean;
+  message: string;
+  elapsedMs: number;
+  startedAt: number;
+  origin: string;
+  configuredModel: string;
+  activeModel: string;
+}
+
 export interface BridgeStatus {
   ready: boolean;
   configuration: boolean;
   decisionEngine: boolean;
   windowManager: boolean;
   workspaceMonitor: boolean;
+  aiReady: boolean;
+  ai: AIReadinessStatus;
 }
 
 export interface ActiveWindowInfo {

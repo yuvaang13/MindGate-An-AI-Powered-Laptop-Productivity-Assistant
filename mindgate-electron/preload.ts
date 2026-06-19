@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
   grantAccess: (durationSeconds: number) => ipcRenderer.invoke('grant-access', durationSeconds),
   ping: () => ipcRenderer.invoke('bridge-ping'),
   getBridgeStatus: () => ipcRenderer.invoke('get-bridge-status'),
+  getAiReadinessStatus: () => ipcRenderer.invoke('get-ai-readiness-status'),
   getOllamaConnectionStatus: () => ipcRenderer.invoke('get-ollama-connection-status'),
   getAvailableModels: () => ipcRenderer.invoke('get-available-models'),
   launchURL: (url: string) => ipcRenderer.invoke('launch-url', url),

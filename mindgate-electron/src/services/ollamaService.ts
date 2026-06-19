@@ -12,6 +12,7 @@ export class OllamaService {
   private cachedConnectionStatus: boolean | null = null;
   private cachedConnectionTime: number = 0;
   private connectionCacheTTL: number = 10000;
+  private warmupPromise: Promise<void> | null = null;
 
   constructor(baseURL: string, model: string) {
     this.baseURL = baseURL;
@@ -148,6 +149,20 @@ export class OllamaService {
     return this.selectBestAvailableModel(await this.getAvailableModels());
   }
 
+  async warmUpModel(): Promise<void> {
+    if (this.warmupPromise) {
+      return this.warmupPromise;
+    }
+
+    this.warmupPromise = this.generateRawResponse('Respond with READY in one word.', 1, 4000)
+      .then(() => undefined)
+      .finally(() => {
+        this.warmupPromise = null;
+      });
+
+    return this.warmupPromise;
+  }
+
   private getRetryDelay(): number {
     return Math.min(this.baseRetryDelay * Math.pow(2, this.retryCount), 30000);
   }
@@ -201,12 +216,12 @@ export class OllamaService {
     }
   }
 
-  async generateRawResponse(prompt: string, maxRetries: number = 1): Promise<string> {
+  async generateRawResponse(prompt: string, maxRetries: number = 1, timeoutMs: number = 5000): Promise<string> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
         const response = await fetch(this.baseURL, {
@@ -281,6 +296,7 @@ export class OllamaService {
     this.retryCount = 0;
     this.cachedConnectionStatus = null;
     this.cachedConnectionTime = 0;
+    this.warmupPromise = null;
   }
 
   async chat(messages: ChatMessage[], distractionContext?: string): Promise<string> {
