@@ -3,6 +3,9 @@ import process from 'node:process';
 
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
+if (env.npm_lifecycle_event === 'dev:electron') {
+  env.VITE_DEV_SERVER_URL = env.VITE_DEV_SERVER_URL ?? 'http://localhost:3000';
+}
 
 const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const detached = process.platform !== 'win32';
