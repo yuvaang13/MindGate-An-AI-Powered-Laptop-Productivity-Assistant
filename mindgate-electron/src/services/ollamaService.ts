@@ -154,7 +154,11 @@ export class OllamaService {
       return this.warmupPromise;
     }
 
-    this.warmupPromise = this.generateRawResponse('Respond with READY in one word.', 1, 4000)
+    this.warmupPromise = this.generateRawResponse('READY', 1, 1500, {
+      num_predict: 1,
+      temperature: 0,
+      top_k: 1,
+    })
       .then(() => undefined)
       .finally(() => {
         this.warmupPromise = null;
@@ -167,7 +171,7 @@ export class OllamaService {
     return Math.min(this.baseRetryDelay * Math.pow(2, this.retryCount), 30000);
   }
 
-  async waitForConnection(timeoutMs: number = 30000): Promise<boolean> {
+  async waitForConnection(timeoutMs: number = 5000): Promise<boolean> {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
@@ -216,7 +220,7 @@ export class OllamaService {
     }
   }
 
-  async generateRawResponse(prompt: string, maxRetries: number = 1, timeoutMs: number = 5000): Promise<string> {
+  async generateRawResponse(prompt: string, maxRetries: number = 1, timeoutMs: number = 5000, options: Record<string, unknown> = {}): Promise<string> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -237,6 +241,7 @@ export class OllamaService {
             options: {
               temperature: 0.7,
               top_p: 0.9,
+              ...options,
             },
           }),
         });

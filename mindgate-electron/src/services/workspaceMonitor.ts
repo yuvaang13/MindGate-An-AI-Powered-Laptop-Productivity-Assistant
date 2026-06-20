@@ -279,6 +279,11 @@ export class WorkspaceMonitor {
     this.lastPromptTime = 0;
   }
 
+  forceRetryPrompt(): void {
+    this.activePromptIdentifier = null;
+    this.lastPromptTime = 0;
+  }
+
   async triggerCheckForCurrentWindow(): Promise<void> {
     const window = await this.monitor.getActiveWindow();
     if (window) {
@@ -311,6 +316,7 @@ export class WorkspaceMonitor {
     const identifier = this.getAppIdentifier(window);
     const now = Date.now() / 1000;
     const isDistracting = this.isDistracting(window);
+    console.log('[Monitor] Window check:', identifier, window.processName, 'distracting:', isDistracting);
 
     if (isDistracting) {
       if (
@@ -320,9 +326,11 @@ export class WorkspaceMonitor {
       ) {
         this.lastPromptTime = now;
         this.activePromptIdentifier = identifier;
+        console.log('[Monitor] Distraction prompt triggered:', identifier);
         this.onDistractionDetected?.(window);
         return true;
       }
+      console.log('[Monitor] Distraction prompt suppressed by repeat throttle:', identifier);
     } else if (this.activePromptIdentifier === identifier) {
       this.clearActivePrompt();
     }

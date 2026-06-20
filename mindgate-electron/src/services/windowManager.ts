@@ -5,6 +5,9 @@ import { getPreloadPath } from '../utils/appPaths.js';
 
 export class WindowManager {
   private overlayWindow: BrowserWindow | null = null;
+  private overlayReadyPromise: Promise<void> = Promise.resolve();
+  private resolveOverlayReady: () => void = () => {};
+  private overlayRendererReady = false;
   private configuration: Configuration;
   private targetApp: ActiveWindowInfo | null = null;
   private systemMonitor: SystemMonitor;
@@ -16,6 +19,25 @@ export class WindowManager {
 
   setOverlayWindow(window: BrowserWindow) {
     this.overlayWindow = window;
+    this.overlayRendererReady = false;
+    this.overlayReadyPromise = new Promise((resolve) => {
+      this.resolveOverlayReady = resolve;
+    });
+  }
+
+  markOverlayRendererReady(): void {
+    if (!this.overlayRendererReady) {
+      this.overlayRendererReady = true;
+      this.resolveOverlayReady();
+    }
+  }
+
+  isOverlayReady(): boolean {
+    return Boolean(this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayRendererReady);
+  }
+
+  isOverlayVisible(): boolean {
+    return Boolean(this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayWindow.isVisible());
   }
 
   setTargetWindow(window: ActiveWindowInfo | null) {
@@ -59,13 +81,34 @@ export class WindowManager {
     return this.overlayWindow;
   }
 
-  showOverlay() {
-    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      this.overlayWindow.show();
-      this.overlayWindow.focus();
-      this.overlayWindow.moveTop();
-      this.focusOverlayInput();
+  showOverlay(): boolean {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) {
+      return false;
     }
+
+    void this.overlayReadyPromise.then(() => this.finishShowOverlay());
+    return true;
+  }
+
+  private finishShowOverlay(): void {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+
+    this.overlayWindow.show();
+    this.overlayWindow.setVisibleOnAllWorkspaces(true);
+    this.overlayWindow.focus();
+    this.overlayWindow.moveTop();
+    if (process.platform === 'darwin') {
+      this.overlayWindow.setAlwaysOnTop(true, 'floating');
+    }
+
+    setTimeout(() => {
+      if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+      if (!this.overlayWindow.isVisible()) {
+        this.overlayWindow.show();
+        this.overlayWindow.moveTop();
+      }
+      this.focusOverlayInput();
+    }, 50);
   }
 
   private focusOverlayInput(): void {

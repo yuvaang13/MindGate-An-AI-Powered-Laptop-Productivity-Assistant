@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 're
 import { Configuration, ChatMessage } from '../../types.js';
 import { TakeoverView } from '../takeover/TakeoverView.js';
 import { MessageList } from './MessageBubble.js';
-import { waitForAiReadiness, waitForBridgeStatus, waitForMindgateAPI } from '../../utils/bridge.js';
+import { waitForBridgeStatus, waitForMindgateAPI } from '../../utils/bridge.js';
 import '../../styles/glassmorphism.css';
 
 export interface OverlayHandle {
@@ -27,7 +27,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   configuration, 
   onClose 
 }, ref) => {
-  const [state, setState] = useState<OverlayState>('preparing');
+  const [state, setState] = useState<OverlayState>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     { role: 'ai', content: DEFAULT_FIRST_MESSAGE, timestamp: Date.now() },
   ]);
@@ -36,8 +36,9 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   const [aiResponse, setAiResponse] = useState('');
   const [isInputDisabled, setIsInputDisabled] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const [isAiReady, setIsAiReady] = useState(false);
-  const [preparingMessage, setPreparingMessage] = useState('Preparing MindGate AI...');
+  const [isAiReady, setIsAiReady] = useState(true);
+  const [aiReadinessConfirmed, setAiReadinessConfirmed] = useState(false);
+  const [preparingMessage, setPreparingMessage] = useState('Checking MindGate AI...');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -57,12 +58,12 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   };
 
   const resetChatState = () => {
-    setState(isAiReady ? 'chat' : 'preparing');
+    setState('chat');
     setMessages([{ role: 'ai', content: DEFAULT_FIRST_MESSAGE, timestamp: Date.now() }]);
     setUserInput('');
     setAiResponse('');
     setRemainingAccessTime(null);
-    setIsInputDisabled(!isAiReady);
+    setIsInputDisabled(false);
     setIsAiThinking(false);
   };
 
@@ -83,22 +84,14 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   useEffect(() => {
     let cancelled = false;
 
-    const enableReadyOverlay = (message: string) => {
-      if (cancelled) return;
-      setIsAiReady(true);
-      setPreparingMessage(message);
-      setIsInputDisabled(false);
-      focusInput();
-    };
-
     const loadReadiness = async () => {
-      const api = await waitForMindgateAPI(5000);
+      const api = await waitForMindgateAPI(1000);
       if (cancelled || !api) {
         setPreparingMessage('MindGate bridge is starting.');
         return;
       }
 
-      const bridgeStatus = await waitForBridgeStatus(3000);
+      const bridgeStatus = await waitForBridgeStatus(1000);
       if (cancelled) return;
       if (!bridgeStatus?.ready) {
         setPreparingMessage('MindGate main process is starting.');
@@ -106,15 +99,20 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
         return;
       }
 
-      const readiness = await waitForAiReadiness(30000);
-      if (cancelled) return;
+      const pollReadiness = async () => {
+        const readiness = await api.getAiReadinessStatus().catch(() => null);
+        if (cancelled) return;
 
-      if (readiness?.ready) {
-        enableReadyOverlay(readiness.message);
-        return;
-      }
+        setPreparingMessage(readiness?.message ?? 'MindGate AI is starting.');
+        if (readiness?.ready) {
+          setAiReadinessConfirmed(true);
+          return;
+        }
 
-      setPreparingMessage(readiness?.message ?? 'MindGate AI is not ready yet.');
+        setTimeout(pollReadiness, 500);
+      };
+
+      void pollReadiness();
     };
 
     void loadReadiness();
@@ -125,7 +123,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   }, []);
 
   useEffect(() => {
-    if (isAiReady || state !== 'chat') return;
+    if (aiReadinessConfirmed || state !== 'chat') return;
 
     let cancelled = false;
     const pollReadiness = async () => {
@@ -136,6 +134,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       setPreparingMessage(status.message);
       if (status.ready) {
         setIsAiReady(true);
+        setAiReadinessConfirmed(true);
         setIsInputDisabled(false);
         focusInput();
       }
@@ -148,7 +147,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [isAiReady, state]);
+  }, [aiReadinessConfirmed, isAiReady, state]);
 
   useEffect(() => {
     if (state === 'approved' && remainingAccessTime !== null) {
@@ -171,7 +170,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     setState(enableInput || isAiReady ? 'chat' : 'preparing');
     setIsInputDisabled(!enableInput);
     if (!enableInput) {
-      setIsAiReady(false);
+      setIsInputDisabled(true);
     }
     if (enableInput) {
       focusInput();
@@ -208,12 +207,12 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       setIsAiThinking(false);
 
       if (result.isApproved === null && isConnectionMessage(result.message)) {
-        await showRetryMessage(result.message, input, result.readiness?.ready ?? true);
+        await showRetryMessage(result.message, input, true);
         return;
       }
 
       if (result.isApproved === false && isConnectionMessage(result.message)) {
-        await showRetryMessage(result.message, input, result.readiness?.ready ?? true);
+        await showRetryMessage(result.message, input, true);
         return;
       }
 
@@ -269,6 +268,11 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
 
   const renderChat = () => (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {!aiReadinessConfirmed && (
+        <div style={{ fontSize: '12px', color: 'var(--text-secondary, #a8b0bd)', lineHeight: 1.4, padding: '0 2px' }}>
+          {preparingMessage}
+        </div>
+      )}
       <div className="glass-message-container">
         {messages.length === 0 ? (
           <div className="glass-empty">
@@ -293,7 +297,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
               void handleSubmit();
             }
           }}
-          placeholder={isAiReady ? 'Tell me why you need access...' : 'Preparing MindGate AI...'}
+          placeholder={aiReadinessConfirmed ? 'Tell me why you need access...' : preparingMessage || 'MindGate AI is starting...'}
           className="glass-input"
           disabled={!isAiReady || isInputDisabled}
           rows={1}

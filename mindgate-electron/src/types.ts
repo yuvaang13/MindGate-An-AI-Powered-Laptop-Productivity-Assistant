@@ -96,6 +96,13 @@ export interface BridgeStatus {
   workspaceMonitor: boolean;
   aiReady: boolean;
   ai: AIReadinessStatus;
+  overlay: {
+    exists: boolean;
+    destroyed: boolean;
+    visible: boolean;
+    rendererLoaded: boolean;
+    preloadReady: boolean;
+  };
 }
 
 export interface ActiveWindowInfo {

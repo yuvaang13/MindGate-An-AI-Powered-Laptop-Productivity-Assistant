@@ -154,7 +154,10 @@ end tell`;
     };
   }
 
-  async getActiveBrowserURL(_identifier: string): Promise<string | null> {
+  async getActiveBrowserURL(identifier: string): Promise<string | null> {
+    const specificURL = await this.getBrowserSpecificURL(identifier);
+    if (specificURL) return specificURL;
+
     try {
       const script = `tell application "System Events"
   set frontApp to first application process whose frontmost is true
@@ -169,6 +172,77 @@ end tell`;
       return result || null;
     } catch (error) {
       console.error('[MacMonitor] Failed to get browser URL:', error);
+      return null;
+    }
+  }
+
+  private async getBrowserSpecificURL(identifier: string): Promise<string | null> {
+    const normalized = identifier.toLowerCase();
+
+    if (normalized.includes('google chrome') || normalized === 'com.google.chrome') {
+      return this.getChromeURL();
+    }
+    if (normalized === 'safari' || normalized === 'com.apple.safari') {
+      return this.getSafariURL();
+    }
+    if (normalized.includes('microsoft edge') || normalized === 'com.microsoft.edgemac') {
+      return this.getEdgeURL();
+    }
+    if (normalized.includes('brave') || normalized === 'com.brave.browser') {
+      return this.getBraveURL();
+    }
+
+    return null;
+  }
+
+  private async getChromeURL(): Promise<string | null> {
+    try {
+      const script = `tell application "Google Chrome"
+  if not (exists front window) then return ""
+  return URL of active tab of front window
+end tell`;
+      const result = await runAppleScript(script, 3000);
+      return result || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getSafariURL(): Promise<string | null> {
+    try {
+      const script = `tell application "Safari"
+  if not (exists front window) then return ""
+  return URL of current tab of front window
+end tell`;
+      const result = await runAppleScript(script, 3000);
+      return result || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getEdgeURL(): Promise<string | null> {
+    try {
+      const script = `tell application "Microsoft Edge"
+  if not (exists front window) then return ""
+  return URL of active tab of front window
+end tell`;
+      const result = await runAppleScript(script, 3000);
+      return result || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getBraveURL(): Promise<string | null> {
+    try {
+      const script = `tell application "Brave Browser"
+  if not (exists front window) then return ""
+  return URL of active tab of front window
+end tell`;
+      const result = await runAppleScript(script, 3000);
+      return result || null;
+    } catch {
       return null;
     }
   }

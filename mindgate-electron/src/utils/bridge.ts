@@ -62,7 +62,7 @@ export const waitForBridgeStatus = async (
 };
 
 export const waitForAiReadiness = async (
-  timeoutMs = 30000,
+  timeoutMs = 5000,
   intervalMs = 250,
 ): Promise<AIReadinessStatus | null> => {
   const startedAt = Date.now();

@@ -52,6 +52,9 @@ let systemMonitor: SystemMonitor;
 let tray: Tray | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
+let overlayRendererLoaded = false;
+let overlayPreloadReady = false;
+let ipcRegistered = false;
 let ollamaStatusInterval: NodeJS.Timeout | null = null;
 
 let isOllamaConnected: boolean = false;
@@ -99,6 +102,17 @@ function getDefaultConfiguration(): Configuration {
   };
 }
 
+function getOverlayStatus(): BridgeStatus['overlay'] {
+  const exists = Boolean(overlayWindow && !overlayWindow.isDestroyed());
+  return {
+    exists,
+    destroyed: Boolean(overlayWindow?.isDestroyed()),
+    visible: exists ? overlayWindow!.isVisible() : false,
+    rendererLoaded: overlayRendererLoaded,
+    preloadReady: overlayPreloadReady,
+  };
+}
+
 function getBridgeStatus(): BridgeStatus {
   const bridgeReady = Boolean(configurationService && decisionEngine && windowManager && workspaceMonitor);
   const ai = decisionEngine?.getAIReadinessStatus(bridgeReady) ?? {
@@ -123,6 +137,7 @@ function getBridgeStatus(): BridgeStatus {
     workspaceMonitor: Boolean(workspaceMonitor),
     aiReady: ai.ready,
     ai,
+    overlay: getOverlayStatus(),
   };
 }
 
@@ -161,6 +176,10 @@ async function initialize() {
   await systemMonitor.initialize();
 
   decisionEngine = new DecisionEngine(configurationService.getConfiguration());
+  void decisionEngine.initializeForLaunch(5000).catch((error) => {
+    console.error('[Main] AI launch readiness failed:', error);
+  });
+
   windowManager = new WindowManager(configurationService.getConfiguration(), systemMonitor);
 
   workspaceMonitor = new WorkspaceMonitor(
@@ -171,9 +190,6 @@ async function initialize() {
 
   setupIPC();
   await createWindows();
-  void decisionEngine.initializeForLaunch(20000).catch((error) => {
-    console.error('[Main] AI launch readiness failed:', error);
-  });
   setupEventHandlers();
   createTray();
 
@@ -187,11 +203,14 @@ async function initialize() {
 }
 
 async function createWindows(): Promise<void> {
-   const config = configurationService.getConfiguration();
-   const primaryDisplay = screen.getPrimaryDisplay();
-   const { bounds } = primaryDisplay;
+  const config = configurationService.getConfiguration();
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { bounds } = primaryDisplay;
 
-overlayWindow = new BrowserWindow({
+  overlayRendererLoaded = false;
+  overlayPreloadReady = false;
+
+  overlayWindow = new BrowserWindow({
     x: Math.round(bounds.x + 12),
     y: Math.round(bounds.y + 12),
     width: config.theme.dimensions.overlayWidth,
@@ -208,6 +227,7 @@ overlayWindow = new BrowserWindow({
     acceptFirstMouse: true,
     minimizable: false,
     maximizable: false,
+    fullscreenable: false,
     show: false,
     webPreferences: {
       preload: getPreloadPath(),
@@ -224,6 +244,11 @@ overlayWindow = new BrowserWindow({
     }
   });
 
+  overlayWindow.on('closed', () => {
+    overlayRendererLoaded = false;
+    overlayPreloadReady = false;
+  });
+
   overlayWindow.on('focus', () => {
     dbg('[Main] overlayWindow focused');
   });
@@ -231,7 +256,9 @@ overlayWindow = new BrowserWindow({
   windowManager.setOverlayWindow(overlayWindow);
 
   const loadPromise = new Promise<void>((resolve) => {
-    overlayWindow!.webContents.on('did-finish-load', () => {
+    overlayWindow!.webContents.once('did-finish-load', () => {
+      overlayRendererLoaded = true;
+      windowManager.markOverlayRendererReady();
       console.log('Overlay window finished loading');
       resolve();
     });
@@ -289,6 +316,9 @@ function openSettingsWindow() {
 }
 
 function setupIPC() {
+  if (ipcRegistered) return;
+  ipcRegistered = true;
+
   ipcMain.handle('check-ollama-connection', async () => {
     if (!decisionEngine) {
       console.error('[Main] check-ollama-connection called before decisionEngine initialized');
@@ -411,8 +441,7 @@ ipcMain.handle('send-chat-message', async (_event, userInput: string) => {
 
   ipcMain.handle('debug-show-overlay', () => {
     if (!windowManager) return false;
-    windowManager.showOverlay();
-    return true;
+    return windowManager.showOverlay();
   });
 
   ipcMain.handle('close-distraction', async () => {
@@ -462,8 +491,8 @@ ipcMain.handle('launch-app', async (_event, appName: string) => {
     }
   });
 
-  // Listen for preload-ready notification and acknowledge it
   ipcMain.on('preload-ready', () => {
+    overlayPreloadReady = true;
     dbg('[Main] preload-ready received');
     if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.webContents.send('preload-ready-ack');
@@ -471,7 +500,13 @@ ipcMain.handle('launch-app', async (_event, appName: string) => {
     }
   });
 
+  if (ollamaStatusInterval) {
+    clearInterval(ollamaStatusInterval);
+    ollamaStatusInterval = null;
+  }
+
   ollamaStatusInterval = setInterval(async () => {
+    if (!decisionEngine) return;
     const connected = await decisionEngine.checkOllamaConnection();
     if (connected !== isOllamaConnected) {
       isOllamaConnected = connected;
@@ -505,7 +540,11 @@ function setupEventHandlers() {
       dbg('Distraction detected:', activeWindow.processName, activeWindow.windowTitle);
       decisionEngine.setCurrentApp(activeWindow);
       windowManager.setTargetWindow(activeWindow);
-      windowManager.showOverlay();
+      const shown = windowManager.showOverlay();
+      if (!shown) {
+        dbg('[Main] Failed to show overlay for distraction:', activeWindow.processName, activeWindow.windowTitle);
+        workspaceMonitor.forceRetryPrompt();
+      }
     } catch (e) {
       console.error('[Main] Error in onDistractionDetected:', e);
     }
@@ -536,6 +575,10 @@ function createTray() {
     tray.setToolTip('MindGate Productivity Assistant');
 
     const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Show Overlay',
+        click: () => windowManager.showOverlay(),
+      },
       {
         label: 'Settings',
         click: () => openSettingsWindow(),

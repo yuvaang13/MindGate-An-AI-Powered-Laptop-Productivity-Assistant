@@ -52,7 +52,7 @@ export class DecisionEngine {
     return this.ollamaService.getAvailableModels();
   }
 
-  initializeForLaunch(timeoutMs = 20000): Promise<AIReadinessStatus> {
+  initializeForLaunch(timeoutMs = 5000): Promise<AIReadinessStatus> {
     if (this.aiReadinessPromise) {
       return this.aiReadinessPromise;
     }
@@ -88,6 +88,17 @@ export class DecisionEngine {
 
     try {
       const connected = await this.ollamaService.waitForConnection(timeoutMs);
+
+      if (!connected) {
+        this.aiReadinessStatus = this.createReadinessStatus({
+          elapsedMs: Date.now() - startedAt,
+          message: 'Ollama is not reachable within 5 seconds. Start Ollama and make sure it is listening.',
+          startedAt,
+        });
+        console.warn('[DecisionEngine] AI readiness blocked:', this.aiReadinessStatus.message);
+        return this.aiReadinessStatus;
+      }
+
       const ollamaStatus = await this.ollamaService.getConnectionStatus();
 
       this.aiReadinessStatus = this.createReadinessStatus({
@@ -101,35 +112,31 @@ export class DecisionEngine {
       });
       console.log('[DecisionEngine] Ollama status:', ollamaStatus.message);
 
-      if (!connected || !ollamaStatus.connected) {
+      if (!ollamaStatus.connected) {
         console.warn('[DecisionEngine] AI readiness blocked:', this.aiReadinessStatus.message);
         return this.aiReadinessStatus;
       }
 
       this.aiReadinessStatus = this.createReadinessStatus({
+        ready: true,
+        bridgeReady: false,
         elapsedMs: Date.now() - startedAt,
         ollamaReachable: true,
         modelReady: true,
-        message: 'Ollama is ready. Loading MindGate model.',
+        warmupReady: false,
+        message: 'Ollama is ready. Starting MindGate model.',
         origin: ollamaStatus.origin,
         activeModel: ollamaStatus.activeModel,
         startedAt,
       });
-      console.log('[DecisionEngine] Warming up model:', ollamaStatus.activeModel);
+      console.log('[DecisionEngine] Model warmup started in background:', ollamaStatus.activeModel);
 
-      await this.ollamaService.warmUpModel();
+      this.warmUpModelInBackground();
 
       this.aiReadinessStatus = this.createReadinessStatus({
-        ready: true,
-        bridgeReady: false,
-        ollamaReachable: true,
-        modelReady: true,
-        warmupReady: true,
+        ...this.aiReadinessStatus,
         elapsedMs: Date.now() - startedAt,
         message: 'MindGate AI is ready.',
-        origin: ollamaStatus.origin,
-        activeModel: ollamaStatus.activeModel,
-        startedAt,
       });
       console.log('[DecisionEngine] AI readiness complete:', this.aiReadinessStatus.message);
 
@@ -144,6 +151,21 @@ export class DecisionEngine {
       console.error('[DecisionEngine] AI readiness failed:', message);
       return this.aiReadinessStatus;
     }
+  }
+
+  private warmUpModelInBackground(): void {
+    this.ollamaService.warmUpModel()
+      .then(() => {
+        this.aiReadinessStatus = this.createReadinessStatus({
+          ...this.aiReadinessStatus,
+          warmupReady: true,
+          elapsedMs: Date.now() - this.aiReadinessStatus.startedAt,
+        });
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.warn('[DecisionEngine] Background model warmup failed:', message);
+      });
   }
 
   private createReadinessStatus(overrides: Partial<AIReadinessStatus>): AIReadinessStatus {
