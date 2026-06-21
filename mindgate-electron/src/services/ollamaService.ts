@@ -32,13 +32,15 @@ export class OllamaService {
     return `${this.getApiOrigin()}/api/tags`;
   }
 
-  async checkConnection(): Promise<boolean> {
+  async checkConnection(forceRefresh = false): Promise<boolean> {
     const now = Date.now();
-    if (this.cachedConnectionStatus !== null && now - this.cachedConnectionTime < this.connectionCacheTTL) {
+    if (!forceRefresh && this.cachedConnectionStatus !== null && now - this.cachedConnectionTime < this.connectionCacheTTL) {
       return this.cachedConnectionStatus;
     }
 
-    const status = await this.getConnectionStatus();
+    const status = await this.fetchConnectionStatus();
+    this.cachedConnectionStatus = status.connected;
+    this.cachedConnectionTime = Date.now();
     return status.connected;
   }
 
@@ -175,7 +177,7 @@ export class OllamaService {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
-      if (await this.checkConnection()) {
+      if (await this.checkConnection(true)) {
         this.retryCount = 0;
         return true;
       }

@@ -1,30 +1,47 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { BridgeStatus, ChatResponse, Configuration, OllamaConnectionStatus } from './src/types.js';
+import type { AIReadinessStatus, BridgeStatus, ChatResponse, Configuration, OllamaConnectionStatus } from './src/types.js';
 
-contextBridge.exposeInMainWorld('mindgateAPI', {
-  checkOllamaConnection: () => ipcRenderer.invoke('check-ollama-connection'),
-  generateFirstMessage: () => ipcRenderer.invoke('generate-first-message'),
-  sendChatMessage: (userInput: string) => ipcRenderer.invoke('send-chat-message', userInput),
-  resetChat: () => ipcRenderer.invoke('reset-chat'),
-  evaluateRequest: (userInput: string) => ipcRenderer.invoke('evaluate-request', userInput),
-  getConfiguration: () => ipcRenderer.invoke('get-configuration'),
-  hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
-  closeDistraction: () => ipcRenderer.invoke('close-distraction'),
-  showSettings: () => ipcRenderer.invoke('show-settings'),
+const IPC_TIMEOUT_MS = 10000;
+
+const invokeWithTimeout = <T>(channel: string, ...args: unknown[]): Promise<T> => {
+  let timeout: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error(`[Bridge] IPC timeout for ${channel}`));
+    }, IPC_TIMEOUT_MS);
+  });
+
+  const invokePromise = ipcRenderer.invoke(channel, ...args).finally(() => {
+    clearTimeout(timeout);
+  });
+
+  return Promise.race([invokePromise, timeoutPromise]);
+};
+
+const mindgateAPI = {
+  checkOllamaConnection: () => invokeWithTimeout<boolean>('check-ollama-connection'),
+  generateFirstMessage: () => invokeWithTimeout<string>('generate-first-message'),
+  sendChatMessage: (userInput: string) => invokeWithTimeout<ChatResponse>('send-chat-message', userInput),
+  resetChat: () => invokeWithTimeout<void>('reset-chat'),
+  evaluateRequest: (userInput: string) => invokeWithTimeout<{ isApproved: boolean; message: string }>('evaluate-request', userInput),
+  getConfiguration: () => invokeWithTimeout<Configuration>('get-configuration'),
+  hideOverlay: () => invokeWithTimeout<void>('hide-overlay'),
+  closeDistraction: () => invokeWithTimeout<void>('close-distraction'),
+  showSettings: () => invokeWithTimeout<boolean>('show-settings'),
   updateSettings: (settings: Partial<Configuration['settings']>) =>
-    ipcRenderer.invoke('update-settings', settings),
-  getRemainingAccessTime: () => ipcRenderer.invoke('get-remaining-access-time'),
-  checkAccessibilityPermission: () => ipcRenderer.invoke('check-accessibility-permission'),
-  requestAccessibilityPermission: () => ipcRenderer.invoke('request-accessibility-permission'),
-  grantAccess: (durationSeconds: number) => ipcRenderer.invoke('grant-access', durationSeconds),
-  ping: () => ipcRenderer.invoke('bridge-ping'),
-  getBridgeStatus: () => ipcRenderer.invoke('get-bridge-status'),
-  getAiReadinessStatus: () => ipcRenderer.invoke('get-ai-readiness-status'),
-  getOllamaConnectionStatus: () => ipcRenderer.invoke('get-ollama-connection-status'),
-  getAvailableModels: () => ipcRenderer.invoke('get-available-models'),
-  launchURL: (url: string) => ipcRenderer.invoke('launch-url', url),
-  launchApp: (appName: string) => ipcRenderer.invoke('launch-app', appName),
-  debugShowOverlay: () => ipcRenderer.invoke('debug-show-overlay'),
+    invokeWithTimeout<boolean>('update-settings', settings),
+  getRemainingAccessTime: () => invokeWithTimeout<number>('get-remaining-access-time'),
+  checkAccessibilityPermission: () => invokeWithTimeout<boolean>('check-accessibility-permission'),
+  requestAccessibilityPermission: () => invokeWithTimeout<boolean>('request-accessibility-permission'),
+  grantAccess: (durationSeconds: number) => invokeWithTimeout<void>('grant-access', durationSeconds),
+  ping: () => invokeWithTimeout<boolean>('bridge-ping'),
+  getBridgeStatus: () => invokeWithTimeout<BridgeStatus>('get-bridge-status'),
+  getAiReadinessStatus: () => invokeWithTimeout<AIReadinessStatus>('get-ai-readiness-status'),
+  getOllamaConnectionStatus: () => invokeWithTimeout<OllamaConnectionStatus>('get-ollama-connection-status'),
+  getAvailableModels: () => invokeWithTimeout<string[]>('get-available-models'),
+  launchURL: (url: string) => invokeWithTimeout<void>('launch-url', url),
+  launchApp: (appName: string) => invokeWithTimeout<void>('launch-app', appName),
+  debugShowOverlay: () => invokeWithTimeout<boolean>('debug-show-overlay'),
 
   onOllamaStatusChanged: (callback: (connected: boolean) => void) => {
     const handler = (_event: unknown, connected: boolean) => callback(connected);
@@ -33,37 +50,16 @@ contextBridge.exposeInMainWorld('mindgateAPI', {
       ipcRenderer.removeListener('ollama-status-changed', handler);
     };
   },
-});
+};
+
+contextBridge.exposeInMainWorld('mindgateAPI', mindgateAPI);
 
 (window as unknown as { __MINDGATE_BRIDGE_READY__: boolean }).__MINDGATE_BRIDGE_READY__ = true;
 ipcRenderer.send('preload-ready');
 
 declare global {
   interface Window {
-    mindgateAPI: {
-      checkOllamaConnection: () => Promise<boolean>;
-      generateFirstMessage: () => Promise<string>;
-      sendChatMessage: (userInput: string) => Promise<ChatResponse>;
-      resetChat: () => Promise<void>;
-      evaluateRequest: (userInput: string) => Promise<{ isApproved: boolean; message: string }>;
-      grantAccess: (durationSeconds: number) => Promise<void>;
-      getConfiguration: () => Promise<Configuration>;
-      hideOverlay: () => Promise<void>;
-      closeDistraction: () => Promise<void>;
-      showSettings: () => Promise<boolean>;
-      updateSettings: (settings: Partial<Configuration['settings']>) => Promise<boolean>;
-      getRemainingAccessTime: () => Promise<number>;
-      checkAccessibilityPermission: () => Promise<boolean>;
-      requestAccessibilityPermission: () => Promise<boolean>;
-      launchURL: (url: string) => Promise<void>;
-      launchApp: (appName: string) => Promise<void>;
-      debugShowOverlay: () => Promise<boolean>;
-      getAvailableModels: () => Promise<string[]>;
-      ping: () => Promise<boolean>;
-      getBridgeStatus: () => Promise<BridgeStatus>;
-      getOllamaConnectionStatus: () => Promise<OllamaConnectionStatus>;
-      onOllamaStatusChanged: (callback: (connected: boolean) => void) => () => void;
-    };
+    mindgateAPI: typeof mindgateAPI;
     __MINDGATE_BRIDGE_READY__: boolean;
     __preloadReady?: Promise<void>;
     __focusInput?: () => void;

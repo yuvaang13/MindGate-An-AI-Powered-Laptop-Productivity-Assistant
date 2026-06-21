@@ -103,6 +103,16 @@ export interface BridgeStatus {
     rendererLoaded: boolean;
     preloadReady: boolean;
   };
+  checkedAt?: string;
+  uptimeSeconds?: number;
+  ipcRegistered?: boolean;
+  services?: {
+    configuration: boolean;
+    decisionEngine: boolean;
+    windowManager: boolean;
+    workspaceMonitor: boolean;
+    overlay: BridgeStatus['overlay'];
+  };
 }
 
 export interface ActiveWindowInfo {

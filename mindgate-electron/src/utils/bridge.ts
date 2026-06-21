@@ -6,8 +6,49 @@ export interface MindgateBridgeStatus {
   isElectron: boolean;
 }
 
+export interface BridgeReadiness {
+  ready: boolean;
+  apiReady: boolean;
+  bridgeReady: boolean;
+  aiReady: boolean;
+  message: string;
+  status: BridgeStatus | null;
+  readiness: AIReadinessStatus | null;
+}
+
 type MindgateAPI = Window['mindgateAPI'] & {
   getAiReadinessStatus: () => Promise<AIReadinessStatus>;
+};
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const formatError = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
+
+const buildBridgeMessage = (
+  status: BridgeStatus | null,
+  readiness: AIReadinessStatus | null,
+  fallback: string,
+): string => {
+  if (status && !status.ready) {
+    const missing: string[] = [];
+    if (!status.configuration) missing.push('configuration');
+    if (!status.decisionEngine) missing.push('decision engine');
+    if (!status.windowManager) missing.push('window manager');
+    if (!status.workspaceMonitor) missing.push('workspace monitor');
+
+    if (missing.length > 0) {
+      return `MindGate bridge is starting (${missing.join(', ')} not ready).`;
+    }
+  }
+
+  if (readiness && !readiness.ready) {
+    return readiness.message;
+  }
+
+  return fallback;
 };
 
 export const getMindgateBridgeStatus = (): MindgateBridgeStatus => {
@@ -39,7 +80,7 @@ export const waitForMindgateAPI = async (
       console.warn('[Bridge] Preload ran, waiting for mindgateAPI:', status);
     }
 
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    await sleep(intervalMs);
   }
 
   console.warn('[Bridge] mindgateAPI unavailable after timeout:', getMindgateBridgeStatus());
@@ -59,6 +100,68 @@ export const waitForBridgeStatus = async (
     console.warn('[Bridge] bridge status check failed:', error);
     return null;
   }
+};
+
+export const waitForBridgeReady = async (
+  timeoutMs = 15000,
+  intervalMs = 250,
+): Promise<BridgeReadiness> => {
+  const startedAt = Date.now();
+  let lastStatus: BridgeStatus | null = null;
+  let lastReadiness: AIReadinessStatus | null = null;
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    const api = await waitForMindgateAPI(Math.min(1000, Math.max(100, timeoutMs - (Date.now() - startedAt))), 100);
+    if (!api?.getBridgeStatus || !api.getAiReadinessStatus) {
+      await sleep(intervalMs);
+      continue;
+    }
+
+    try {
+      lastStatus = await api.getBridgeStatus();
+      lastReadiness = await api.getAiReadinessStatus();
+    } catch (error) {
+      return {
+        ready: false,
+        apiReady: true,
+        bridgeReady: Boolean(lastStatus?.ready),
+        aiReady: Boolean(lastReadiness?.ready),
+        message: `MindGate bridge status check failed: ${formatError(error)}`,
+        status: lastStatus,
+        readiness: lastReadiness,
+      };
+    }
+
+    if (lastStatus?.ready) {
+      return {
+        ready: true,
+        apiReady: true,
+        bridgeReady: true,
+        aiReady: Boolean(lastReadiness?.ready),
+        message: buildBridgeMessage(lastStatus, lastReadiness, 'MindGate bridge is ready.'),
+        status: lastStatus,
+        readiness: lastReadiness,
+      };
+    }
+
+    await sleep(intervalMs);
+  }
+
+  const message = buildBridgeMessage(
+    lastStatus,
+    lastReadiness,
+    'MindGate bridge did not become ready in time.',
+  );
+
+  return {
+    ready: false,
+    apiReady: Boolean(window.mindgateAPI),
+    bridgeReady: Boolean(lastStatus?.ready),
+    aiReady: Boolean(lastReadiness?.ready),
+    message,
+    status: lastStatus,
+    readiness: lastReadiness,
+  };
 };
 
 export const waitForAiReadiness = async (
@@ -84,7 +187,7 @@ export const waitForAiReadiness = async (
       console.warn('[Bridge] AI readiness status check failed:', error);
     }
 
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    await sleep(intervalMs);
   }
 
   console.warn('[Bridge] AI readiness timed out:', lastStatus);

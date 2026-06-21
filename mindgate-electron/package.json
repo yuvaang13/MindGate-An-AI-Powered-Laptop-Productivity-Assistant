@@ -11,9 +11,11 @@
     "dev:renderer": "vite",
     "build": "tsc -p tsconfig.main.json && vite build",
     "preview": "vite preview",
+    "smoke": "npm run build && npm run test:smoke",
     "dist": "npm run build && electron-builder",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "test:smoke": "node scripts/smoke-bridge.mjs"
   },
   "dependencies": {
     "react": "^18.0.0",

@@ -114,7 +114,14 @@ function getOverlayStatus(): BridgeStatus['overlay'] {
 }
 
 function getBridgeStatus(): BridgeStatus {
-  const bridgeReady = Boolean(configurationService && decisionEngine && windowManager && workspaceMonitor);
+  const services = {
+    configuration: Boolean(configurationService),
+    decisionEngine: Boolean(decisionEngine),
+    windowManager: Boolean(windowManager),
+    workspaceMonitor: Boolean(workspaceMonitor),
+    overlay: getOverlayStatus(),
+  };
+  const bridgeReady = services.configuration && services.decisionEngine && services.windowManager && services.workspaceMonitor;
   const ai = decisionEngine?.getAIReadinessStatus(bridgeReady) ?? {
     ready: false,
     bridgeReady,
@@ -131,13 +138,17 @@ function getBridgeStatus(): BridgeStatus {
 
   return {
     ready: bridgeReady,
-    configuration: Boolean(configurationService),
-    decisionEngine: Boolean(decisionEngine),
-    windowManager: Boolean(windowManager),
-    workspaceMonitor: Boolean(workspaceMonitor),
+    configuration: services.configuration,
+    decisionEngine: services.decisionEngine,
+    windowManager: services.windowManager,
+    workspaceMonitor: services.workspaceMonitor,
     aiReady: ai.ready,
     ai,
-    overlay: getOverlayStatus(),
+    overlay: services.overlay,
+    checkedAt: new Date().toISOString(),
+    uptimeSeconds: process.uptime(),
+    ipcRegistered,
+    services,
   };
 }
 
@@ -203,14 +214,23 @@ async function initialize() {
 }
 
 async function createWindows(): Promise<void> {
+  if (!configurationService || !windowManager) {
+    console.error('[Main] createWindows called before services initialized');
+    return;
+  }
+
   const config = configurationService.getConfiguration();
   const primaryDisplay = screen.getPrimaryDisplay();
   const { bounds } = primaryDisplay;
 
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.destroy();
+  }
+
   overlayRendererLoaded = false;
   overlayPreloadReady = false;
 
-  overlayWindow = new BrowserWindow({
+  const newOverlayWindow = new BrowserWindow({
     x: Math.round(bounds.x + 12),
     y: Math.round(bounds.y + 12),
     width: config.theme.dimensions.overlayWidth,
@@ -236,6 +256,8 @@ async function createWindows(): Promise<void> {
       webSecurity: false,
     },
   });
+
+  overlayWindow = newOverlayWindow;
 
   overlayWindow.on('close', (event) => {
     if (!isQuitting) {
@@ -525,6 +547,8 @@ ipcMain.handle('launch-app', async (_event, appName: string) => {
 }
 
 function checkOllamaInBackground(): void {
+  if (!decisionEngine) return;
+
   void (async () => {
     isOllamaConnected = await decisionEngine.checkOllamaConnection();
     if (!isOllamaConnected) {
@@ -535,6 +559,11 @@ function checkOllamaInBackground(): void {
 }
 
 function setupEventHandlers() {
+  if (!workspaceMonitor || !decisionEngine || !windowManager) {
+    console.error('[Main] setupEventHandlers called before services initialized');
+    return;
+  }
+
   workspaceMonitor.onDistractionDetected = async (activeWindow: ActiveWindowInfo) => {
     try {
       dbg('Distraction detected:', activeWindow.processName, activeWindow.windowTitle);
