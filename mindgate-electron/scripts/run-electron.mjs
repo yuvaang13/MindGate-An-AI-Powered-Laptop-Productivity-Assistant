@@ -17,11 +17,32 @@ const child = spawn(executable, ['electron', '.', ...process.argv.slice(2)], {
 });
 
 let isTerminating = false;
+let forceKillTimer = null;
 
 function exitCodeForSignal(signal) {
   if (signal === 'SIGINT') return 130;
   if (signal === 'SIGTERM') return 143;
   return 1;
+}
+
+function signalProcessGroup(signal) {
+  if (!child.pid) return false;
+
+  try {
+    if (detached) {
+      process.kill(-child.pid, signal);
+    } else {
+      child.kill(signal);
+    }
+    return true;
+  } catch {
+    try {
+      child.kill(signal);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 function terminateChild(signal) {
@@ -30,9 +51,13 @@ function terminateChild(signal) {
 
   console.error(`[run-electron] Received ${signal}, quitting Electron...`);
 
-  const forceKillTimer = setTimeout(() => {
+  forceKillTimer = setTimeout(() => {
     try {
-      child.kill('SIGKILL');
+      if (detached && child.pid) {
+        process.kill(-child.pid, 'SIGKILL');
+      } else {
+        child.kill('SIGKILL');
+      }
     } catch {
       return;
     }
@@ -53,32 +78,16 @@ function terminateChild(signal) {
     return;
   }
 
-  try {
-    process.kill(-child.pid, signal);
-  } catch {
-    try {
-      child.kill(signal);
-    } catch {
-      return;
-    }
-  }
+  signalProcessGroup(signal);
 }
 
-for (const signal of ['SIGINT', 'SIGTERM', 'SIGBREAK']) {
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
   process.on(signal, () => terminateChild(signal));
 }
 
 process.on('exit', () => {
   if (!isTerminating && child.pid && !child.killed) {
-    try {
-      if (detached) {
-        process.kill(-child.pid, 'SIGTERM');
-      } else {
-        child.kill('SIGTERM');
-      }
-    } catch {
-      return;
-    }
+    signalProcessGroup('SIGTERM');
   }
 });
 
@@ -88,6 +97,9 @@ child.on('error', (error) => {
 });
 
 child.on('exit', (code, signal) => {
+  if (forceKillTimer) {
+    clearTimeout(forceKillTimer);
+  }
   if (signal) {
     process.exit(exitCodeForSignal(signal));
     return;

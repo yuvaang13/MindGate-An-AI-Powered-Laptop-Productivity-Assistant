@@ -596,6 +596,26 @@ function createTray() {
   }
 }
 
+function requestQuit(signal?: NodeJS.Signals): void {
+  if (isQuitting) return;
+
+  if (signal) {
+    dbg(`[Main] Received ${signal}, quitting app`);
+  }
+
+  isQuitting = true;
+
+  if (app.isReady()) {
+    app.quit();
+  } else {
+    app.once('ready', () => app.quit());
+  }
+}
+
+for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+  process.on(signal, () => requestQuit(signal));
+}
+
 app.whenReady().then(async () => {
   if (process.platform === 'darwin' && app.dock) {
     app.dock.hide();

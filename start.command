@@ -43,29 +43,57 @@ npm run build
 
 log "🚀  Launching MindGate..."
 
-# Track if we're shutting down
 SHUTDOWN_IN_PROGRESS=0
+ELECTRON_PID=""
 
-# Trap signals to ensure Electron and all child processes terminate when this script exits
+terminate_pid() {
+  local pid="$1"
+  local pgid="${2:-}"
+  local signal="$3"
+
+  if [[ -n "$pgid" && "$pgid" != "$$" ]]; then
+    kill -"$signal" "-$pgid" 2>/dev/null || kill -"$signal" "$pid" 2>/dev/null || true
+  else
+    kill -"$signal" "$pid" 2>/dev/null || true
+  fi
+}
+
 cleanup() {
   if [[ "$SHUTDOWN_IN_PROGRESS" -eq 1 ]]; then
     return
   fi
   SHUTDOWN_IN_PROGRESS=1
-  log "🛑  Shutting down MindGate..."
-  if [[ -n "${ELECTRON_PID:-}" ]]; then
-    # Kill entire process group (negative PID) for complete cleanup
-    kill -TERM -"$ELECTRON_PID" 2>/dev/null || true
-    sleep 1
-    # Force kill if still running
-    kill -KILL -"$ELECTRON_PID" 2>/dev/null || true
+
+  if [[ -z "${ELECTRON_PID:-}" ]]; then
+    return
   fi
+
+  if ! ps -p "$ELECTRON_PID" >/dev/null 2>&1; then
+    return
+  fi
+
+  log "🛑  Shutting down MindGate..."
+
+  local pgid
+  pgid="$(ps -o pgid= -p "$ELECTRON_PID" 2>/dev/null | tr -d ' ' || true)"
+
+  terminate_pid "$ELECTRON_PID" "$pgid" TERM
+  sleep 5
+
+  if ps -p "$ELECTRON_PID" >/dev/null 2>&1; then
+    terminate_pid "$ELECTRON_PID" "$pgid" KILL
+  fi
+
+  wait "$ELECTRON_PID" 2>/dev/null || true
+  ELECTRON_PID=""
 }
 
-trap 'cleanup' EXIT INT TERM
+trap 'cleanup' EXIT HUP INT TERM
 
-# Start Electron in background - process group will be killed on exit
-npx electron . &
+node scripts/run-electron.mjs &
 ELECTRON_PID=$!
-log "📱  MindGate started (PID: $ELECTRON_PID)"
-wait "$ELECTRON_PID"
+log "📱  MindGate launcher started (PID: $ELECTRON_PID)"
+
+if [[ -n "${ELECTRON_PID:-}" ]]; then
+  wait "$ELECTRON_PID"
+fi
