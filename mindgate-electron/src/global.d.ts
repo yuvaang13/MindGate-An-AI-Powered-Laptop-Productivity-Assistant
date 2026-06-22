@@ -1,7 +1,5 @@
 import type { AIReadinessStatus, BridgeStatus, ChatResponse, Configuration, OllamaConnectionStatus } from './types.js';
 
-import type { AIReadinessStatus, BridgeStatus, ChatResponse, Configuration, OllamaConnectionStatus } from './types.js';
-
 declare global {
   interface Window {
     mindgateAPI: {
