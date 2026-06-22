@@ -125,6 +125,9 @@ export const waitForBridgeReady = async (
   while (Date.now() - startedAt <= timeoutMs) {
     const api = await waitForMindgateAPI(Math.min(800, Math.max(150, timeoutMs - (Date.now() - startedAt))), 50);
     if (!api?.getBridgeStatus || !api.getAiReadinessStatus) {
+      if (Date.now() - startedAt > timeoutMs - 200) {
+        console.warn('[Bridge] API became unavailable near timeout');
+      }
       await sleep(intervalMs);
       continue;
     }
@@ -133,15 +136,27 @@ export const waitForBridgeReady = async (
       lastStatus = await api.getBridgeStatus();
       lastReadiness = await api.getAiReadinessStatus();
     } catch (error) {
-      return {
-        ready: false,
-        apiReady: true,
-        bridgeReady: Boolean(lastStatus?.ready),
-        aiReady: Boolean(lastReadiness?.ready),
-        message: `MindGate bridge status check failed: ${formatError(error)}`,
-        status: lastStatus,
-        readiness: lastReadiness,
-      };
+      if (Date.now() - startedAt > timeoutMs - 500) {
+        console.warn('[Bridge] Final status check failed — timing out:', error);
+      } else {
+        console.warn('[Bridge] bridge status check failed — retrying:', error);
+      }
+      if (Date.now() - startedAt >= timeoutMs - intervalMs) {
+        const lastApiAvailable = Boolean(window.mindgateAPI);
+        return {
+          ready: false,
+          apiReady: lastApiAvailable,
+          bridgeReady: Boolean(lastStatus?.ready),
+          aiReady: Boolean(lastReadiness?.ready),
+          message: lastApiAvailable
+            ? `MindGate bridge did not respond in time (${formatError(error)}). The app is starting — please wait a moment.`
+            : 'MindGate bridge API is not available yet. Please ensure the MindGate desktop app is running and loaded.',
+          status: lastStatus,
+          readiness: lastReadiness,
+        };
+      }
+      await sleep(intervalMs);
+      continue;
     }
 
     // Prioritize bridge readiness - allow chat access once bridge is ready
