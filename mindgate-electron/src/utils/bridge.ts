@@ -4,6 +4,7 @@ export interface MindgateBridgeStatus {
   hasApi: boolean;
   hasReadyFlag: boolean;
   isElectron: boolean;
+  isPreloadReady: boolean;
 }
 
 export interface BridgeReadiness {
@@ -58,6 +59,7 @@ export const getMindgateBridgeStatus = (): MindgateBridgeStatus => {
     hasApi: Boolean(window.mindgateAPI),
     hasReadyFlag: window.__MINDGATE_BRIDGE_READY__ === true,
     isElectron: userAgent.toLowerCase().includes('electron'),
+    isPreloadReady: window.__preloadReady !== undefined,
   };
 };
 
@@ -71,8 +73,18 @@ export const waitForMindgateAPI = async (
   while (Date.now() - startedAt <= timeoutMs) {
     const status = getMindgateBridgeStatus();
 
-    if (window.mindgateAPI) {
-      return window.mindgateAPI;
+    if (status.hasApi) {
+      // Only consider ready if in Electron and preload is actually ready
+      if (status.isElectron && status.isPreloadReady) {
+        console.log('[Bridge] API is available, preload is ready - returning API');
+        return window.mindgateAPI;
+      } else if (status.isElectron && status.hasApi && !status.isPreloadReady) {
+        console.log('[Bridge] API is available but preload is still starting, waiting...');
+      } else if (!status.isElectron) {
+        // In browser context, having the API is sufficient
+        console.log('[Bridge] API is available in browser context, returning');
+        return window.mindgateAPI;
+      }
     }
 
     if (status.hasReadyFlag && !status.hasApi && !warnedAboutReadyWithoutApi) {

@@ -54,7 +54,17 @@ const mindgateAPI = {
 
 contextBridge.exposeInMainWorld('mindgateAPI', mindgateAPI);
 
-(window as unknown as { __MINDGATE_BRIDGE_READY__: boolean }).__MINDGATE_BRIDGE_READY__ = true;
+const preloadReadyPromise = new Promise<void>((resolve) => {
+  const handler = () => resolve();
+  ipcRenderer.on('preload-ready', handler);
+  const checkTimer = setTimeout(() => {
+    clearTimeout(checkTimer);
+    ipcRenderer.removeListener('preload-ready', handler);
+    resolve();
+  }, 5000);
+});
+
+(window as unknown as { __preloadReady?: Promise<void> }).__preloadReady = preloadReadyPromise;
 ipcRenderer.send('preload-ready');
 
 declare global {
