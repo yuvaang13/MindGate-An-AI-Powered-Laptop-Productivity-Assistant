@@ -128,6 +128,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       if (cancelled) return;
 
       const api = await waitForMindgateAPI(8000, 100);
+      console.error('[Overlay] waitForMindgateAPI result:', api ? 'API available' : 'API unavailable');
       if (cancelled) return;
 
       if (!api) {
@@ -141,9 +142,11 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       let bridgeStatus: BridgeStatus | null = null;
       try {
         bridgeStatus = await api.getBridgeStatus?.();
-      } catch {
+      } catch (e) {
+        console.error('[Overlay] getBridgeStatus failed:', e);
         bridgeStatus = null;
       }
+      console.error('[Overlay] Bridge status received:', bridgeStatus);
 
       const ready = Boolean(bridgeStatus?.ready);
       setBridgeMessage(

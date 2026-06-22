@@ -525,11 +525,12 @@ ipcMain.handle('launch-app', async (_event, appName: string) => {
   });
 
   ipcMain.on('preload-ready', (event) => {
+    console.error('[Main] preload-ready received, sender valid:', event.sender === overlayWindow?.webContents, 'overlay exists:', Boolean(overlayWindow));
     if (overlayWindow && !overlayWindow.isDestroyed() && event.sender === overlayWindow.webContents) {
       overlayPreloadReady = true;
-      dbg('[Main] preload-ready received from overlay');
+      console.error('[Main] preload-ready from overlay confirmed');
       event.sender.send('preload-ready-ack');
-      dbg('[Main] preload-ready-ack sent');
+      console.error('[Main] preload-ready-ack sent');
     }
   });
 

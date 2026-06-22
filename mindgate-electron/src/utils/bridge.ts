@@ -85,7 +85,7 @@ export const waitForMindgateAPI = async (
       }
     }
 
-    console.debug('[Bridge] Polling... hasApi:', status.hasApi, 'isPreloadReady:', status.isPreloadReady, 'window.mindgateAPI type:', typeof window.mindgateAPI);
+    console.error('[Bridge] Polling... hasApi:', status.hasApi, 'isPreloadReady:', status.isPreloadReady, 'window.mindgateAPI type:', typeof window.mindgateAPI, 'hasReadyFlag:', status.hasReadyFlag);
 
     if (status.hasReadyFlag && !status.hasApi && !warnedAboutReadyWithoutApi) {
       warnedAboutReadyWithoutApi = true;
@@ -95,7 +95,8 @@ export const waitForMindgateAPI = async (
     await sleep(intervalMs);
   }
 
-  console.warn('[Bridge] mindgateAPI unavailable after timeout:', getMindgateBridgeStatus());
+  const finalStatus = getMindgateBridgeStatus();
+  console.error('[Bridge] mindgateAPI unavailable after timeout:', finalStatus);
   return null;
 };
 

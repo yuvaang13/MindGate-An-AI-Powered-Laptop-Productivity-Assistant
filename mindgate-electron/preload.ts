@@ -52,21 +52,26 @@ const mindgateAPI = {
   },
 };
 
-console.log('[Preload] Exposing mindgateAPI on window');
+console.error('[Preload] Exposing mindgateAPI on window');
 contextBridge.exposeInMainWorld('mindgateAPI', mindgateAPI);
-console.log('[Preload] mindgateAPI exposed, hasApi:', Boolean(window.mindgateAPI));
+console.error('[Preload] mindgateAPI exposed, hasApi:', Boolean(window.mindgateAPI));
 
 const preloadReadyPromise = new Promise<void>((resolve) => {
-  const handler = () => resolve();
+  const handler = () => {
+    console.error('[Preload] preload-ready-ack received');
+    resolve();
+  };
   ipcRenderer.on('preload-ready-ack', handler);
   const checkTimer = setTimeout(() => {
     clearTimeout(checkTimer);
     ipcRenderer.removeListener('preload-ready-ack', handler);
+    console.error('[Preload] preload-ready-ack timeout, resolving anyway');
     resolve();
   }, 5000);
 });
 
 window.__preloadReady = preloadReadyPromise;
+console.error('[Preload] Sending preload-ready');
 ipcRenderer.send('preload-ready');
 
 declare global {
