@@ -124,7 +124,10 @@ export const waitForBridgeReady = async (
 
   while (Date.now() - startedAt <= timeoutMs) {
     const api = await waitForMindgateAPI(Math.min(800, Math.max(150, timeoutMs - (Date.now() - startedAt))), 50);
-    if (!api?.getBridgeStatus || !api.getAiReadinessStatus) {
+    const hasBridgeStatus = Boolean(api?.getBridgeStatus);
+    const hasAiReadiness = Boolean(api?.getAiReadinessStatus);
+
+    if (!hasBridgeStatus && !hasAiReadiness) {
       if (Date.now() - startedAt > timeoutMs - 200) {
         console.warn('[Bridge] API became unavailable near timeout');
       }
@@ -132,34 +135,62 @@ export const waitForBridgeReady = async (
       continue;
     }
 
-    try {
-      lastStatus = await api.getBridgeStatus();
-      lastReadiness = await api.getAiReadinessStatus();
-    } catch (error) {
-      if (Date.now() - startedAt > timeoutMs - 500) {
-        console.warn('[Bridge] Final status check failed — timing out:', error);
-      } else {
-        console.warn('[Bridge] bridge status check failed — retrying:', error);
+    if (hasBridgeStatus) {
+      try {
+        lastStatus = await api!.getBridgeStatus();
+      } catch (error) {
+        if (Date.now() - startedAt > timeoutMs - 500) {
+          console.warn('[Bridge] Final bridge status check failed — timing out:', error);
+        } else {
+          console.warn('[Bridge] bridge status check failed — retrying:', error);
+        }
+        if (Date.now() - startedAt >= timeoutMs - intervalMs) {
+          const lastApiAvailable = Boolean(window.mindgateAPI);
+          return {
+            ready: false,
+            apiReady: lastApiAvailable,
+            bridgeReady: Boolean(lastStatus?.ready),
+            aiReady: Boolean(lastReadiness?.ready),
+            message: lastApiAvailable
+              ? `MindGate bridge did not respond in time (${formatError(error)}). The app is starting — please wait a moment.`
+              : 'MindGate bridge API is not available yet. Please ensure the MindGate desktop app is running and loaded.',
+            status: lastStatus,
+            readiness: lastReadiness,
+          };
+        }
+        await sleep(intervalMs);
+        continue;
       }
-      if (Date.now() - startedAt >= timeoutMs - intervalMs) {
-        const lastApiAvailable = Boolean(window.mindgateAPI);
-        return {
-          ready: false,
-          apiReady: lastApiAvailable,
-          bridgeReady: Boolean(lastStatus?.ready),
-          aiReady: Boolean(lastReadiness?.ready),
-          message: lastApiAvailable
-            ? `MindGate bridge did not respond in time (${formatError(error)}). The app is starting — please wait a moment.`
-            : 'MindGate bridge API is not available yet. Please ensure the MindGate desktop app is running and loaded.',
-          status: lastStatus,
-          readiness: lastReadiness,
-        };
-      }
-      await sleep(intervalMs);
-      continue;
     }
 
-    // Prioritize bridge readiness - allow chat access once bridge is ready
+    if (hasAiReadiness) {
+      try {
+        lastReadiness = await api!.getAiReadinessStatus();
+      } catch (error) {
+        if (Date.now() - startedAt > timeoutMs - 500) {
+          console.warn('[Bridge] Final AI readiness check failed — timing out:', error);
+        } else {
+          console.warn('[Bridge] AI readiness check failed — retrying:', error);
+        }
+        if (Date.now() - startedAt >= timeoutMs - intervalMs) {
+          const lastApiAvailable = Boolean(window.mindgateAPI);
+          return {
+            ready: false,
+            apiReady: lastApiAvailable,
+            bridgeReady: Boolean(lastStatus?.ready),
+            aiReady: Boolean(lastReadiness?.ready),
+            message: lastApiAvailable
+              ? `MindGate AI status check failed (${formatError(error)}).`
+              : 'MindGate bridge API is not available yet. Please ensure the MindGate desktop app is running and loaded.',
+            status: lastStatus,
+            readiness: lastReadiness,
+          };
+        }
+        await sleep(intervalMs);
+        continue;
+      }
+    }
+
     if (lastStatus?.ready) {
       return {
         ready: true,

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Configuration, ChatMessage } from '../../types.js';
+import { Configuration, ChatMessage, BridgeStatus, AIReadinessStatus } from '../../types.js';
 import { TakeoverView } from '../takeover/TakeoverView.js';
 import { MessageList } from './MessageBubble.js';
-import { waitForBridgeReady } from '../../utils/bridge.js';
+import { waitForMindgateAPI } from '../../utils/bridge.js';
 import '../../styles/glassmorphism.css';
 
 export interface OverlayHandle {
@@ -18,10 +18,6 @@ type OverlayState = 'preparing' | 'chat' | 'loading' | 'approved' | 'denied' | '
 
 const DEFAULT_FIRST_MESSAGE = 'What do you need access for?';
 const APPROVAL_DISPLAY_MS = 2000;
-
-const isConnectionMessage = (message: string) => {
-  return /connection|ollama|starting|unavailable|not ready|try again|connecting|timeout/i.test(message);
-};
 
 const formatError = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -43,7 +39,6 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isAiReady, setIsAiReady] = useState(false);
   const [isBridgeReady, setIsBridgeReady] = useState(false);
-  const [aiReadinessConfirmed, setAiReadinessConfirmed] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState('Verifying MindGate bridge...');
   const [preparingMessage, setPreparingMessage] = useState(bridgeMessage);
 
@@ -65,12 +60,12 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   };
 
   const resetChatState = () => {
-    setState(isBridgeReady && isAiReady ? 'chat' : 'preparing');
+    setState(isBridgeReady ? 'chat' : 'preparing');
     setMessages([{ role: 'ai', content: DEFAULT_FIRST_MESSAGE, timestamp: Date.now() }]);
     setUserInput('');
     setAiResponse('');
     setRemainingAccessTime(null);
-    setIsInputDisabled(!(isBridgeReady && isAiReady));
+    setIsInputDisabled(!isBridgeReady);
     setIsAiThinking(false);
   };
 
@@ -82,24 +77,24 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
   }), [isBridgeReady, isAiReady]);
 
   useEffect(() => {
-    if (state === 'chat' && isBridgeReady && isAiReady) {
+    if (state === 'chat' && isBridgeReady) {
       const timer = setTimeout(focusInput, 50);
       return () => clearTimeout(timer);
     }
-  }, [state, isBridgeReady, isAiReady]);
+  }, [state, isBridgeReady]);
 
   useEffect(() => {
     let cancelled = false;
     let bridgeRetryTimer: ReturnType<typeof setTimeout> | null = null;
     let aiPollTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const pollAiReadiness = async () => {
+    const pollAiReadiness = async (api: Window['mindgateAPI']) => {
       if (cancelled) return;
 
-      const api = window.mindgateAPI;
       if (!api?.getAiReadinessStatus) {
         setPreparingMessage('MindGate AI status is not available yet.');
-        aiPollTimer = setTimeout(pollAiReadiness, 1000);
+        setBridgeMessage('MindGate bridge is ready, but AI status is unavailable.');
+        aiPollTimer = setTimeout(() => pollAiReadiness(api), 1000);
         return;
       }
 
@@ -107,51 +102,66 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
         const readiness = await api.getAiReadinessStatus();
         if (cancelled) return;
 
-        setPreparingMessage(readiness.message);
-        setBridgeMessage(readiness.message);
+        const statusMessage = readiness.message || 'MindGate AI is starting.';
+        setPreparingMessage(statusMessage);
         setIsAiReady(readiness.ready);
 
         if (readiness.ready) {
-          setAiReadinessConfirmed(true);
           setIsInputDisabled(false);
           setState('chat');
           focusInput();
           return;
         }
 
-        setIsAiReady(false);
         setIsInputDisabled(true);
-        aiPollTimer = setTimeout(pollAiReadiness, 1000);
+        aiPollTimer = setTimeout(() => pollAiReadiness(api), 1000);
       } catch (error) {
         if (cancelled) return;
-        setPreparingMessage(`AI status check failed: ${formatError(error)}`);
-        setBridgeMessage(`AI status check failed: ${formatError(error)}`);
-        aiPollTimer = setTimeout(pollAiReadiness, 1000);
+        const errMsg = formatError(error);
+        setPreparingMessage(`AI status check failed: ${errMsg}`);
+        setBridgeMessage(`AI status check failed: ${errMsg}`);
+        aiPollTimer = setTimeout(() => pollAiReadiness(api), 1000);
       }
     };
 
-    const loadBridgeReadiness = async () => {
+    const waitForBridge = async () => {
       if (cancelled) return;
 
-      const readiness = await waitForBridgeReady(15000, 250);
+      const api = await waitForMindgateAPI(8000, 100);
       if (cancelled) return;
 
-      setBridgeMessage(readiness.message);
-      setPreparingMessage(readiness.message);
-      setIsBridgeReady(readiness.ready);
-      setIsAiReady(readiness.aiReady);
-      setAiReadinessConfirmed(false);
-      setIsInputDisabled(!readiness.ready || !readiness.aiReady);
-
-      if (!readiness.ready) {
-        bridgeRetryTimer = setTimeout(loadBridgeReadiness, 1000);
+      if (!api) {
+        setBridgeMessage('MindGate bridge API is not available yet. Ensure the MindGate desktop app is running and loaded.');
+        setPreparingMessage('MindGate bridge API is not available yet. Ensure the MindGate desktop app is running and loaded.');
+        setIsBridgeReady(false);
+        bridgeRetryTimer = setTimeout(waitForBridge, 1000);
         return;
       }
 
-      void pollAiReadiness();
+      let bridgeStatus: BridgeStatus | null = null;
+      try {
+        bridgeStatus = await api.getBridgeStatus?.();
+      } catch {
+        bridgeStatus = null;
+      }
+
+      const ready = Boolean(bridgeStatus?.ready);
+      setBridgeMessage(
+        ready
+          ? 'MindGate bridge is ready.'
+          : 'MindGate bridge is still starting. Please wait a moment.',
+      );
+      setIsBridgeReady(ready);
+
+      if (!ready) {
+        bridgeRetryTimer = setTimeout(waitForBridge, 1000);
+        return;
+      }
+
+      void pollAiReadiness(api);
     };
 
-    void loadBridgeReadiness();
+    void waitForBridge();
 
     return () => {
       cancelled = true;
@@ -179,7 +189,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       setUserInput(inputToRestore);
     }
 
-    const canInteract = enableInput && isBridgeReady && isAiReady;
+    const canInteract = enableInput && isBridgeReady;
     setState(canInteract ? 'chat' : 'preparing');
     setIsInputDisabled(!canInteract);
     setPreparingMessage(message);
@@ -193,46 +203,91 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     if (!userInput.trim() || isInputDisabled) return;
 
     const input = userInput.trim();
-    const api = window.mindgateAPI;
+    let api: Window['mindgateAPI'] | null = window.mindgateAPI ?? null;
 
-    if (!isBridgeReady || !api) {
-      await showRetryMessage(bridgeMessage || 'MindGate bridge is starting.', input, false);
-      return;
+    if (!api) {
+      api = await waitForMindgateAPI(8000, 100);
+      if (!api) {
+        await showRetryMessage('MindGate bridge API is not available yet. Ensure the MindGate desktop app is running.', input, true);
+        return;
+      }
     }
 
-    if (!isAiReady) {
-      await showRetryMessage(preparingMessage || bridgeMessage || 'MindGate AI is not ready yet.', input, false);
+    let bridgeStatus: BridgeStatus | null = null;
+    try {
+      bridgeStatus = await api.getBridgeStatus?.();
+    } catch {
+      bridgeStatus = null;
+    }
+
+    if (!bridgeStatus?.ready) {
+      await showRetryMessage('MindGate bridge is still starting. Please wait a moment and try again.', input, true);
       return;
     }
 
     setIsInputDisabled(true);
     setIsAiThinking(true);
+
+    let readiness: AIReadinessStatus | null = null;
+    try {
+      readiness = await api.getAiReadinessStatus();
+    } catch {
+      readiness = null;
+    }
+
+    if (!readiness?.ready) {
+      setIsAiThinking(false);
+      setIsAiReady(false);
+      setState('loading');
+      setUserInput('');
+
+      const aiWait = async (): Promise<AIReadinessStatus | null> => {
+        const start = Date.now();
+        while (Date.now() - start < 20000) {
+          try {
+            const status = await api.getAiReadinessStatus();
+            if (status?.ready) return status;
+          } catch {
+            // continue waiting
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        return null;
+      };
+
+      const finalReadiness = await aiWait();
+      if (!finalReadiness) {
+        const message = readiness?.message || 'MindGate AI is not ready yet. Please wait a moment.';
+        await showRetryMessage(message, '', true);
+        return;
+      }
+
+      setIsAiReady(true);
+      setIsInputDisabled(false);
+      setPreparingMessage(finalReadiness.message);
+      setBridgeMessage(finalReadiness.message);
+      await sendChatMessage(input, api);
+      return;
+    }
+
+    await sendChatMessage(input, api);
+  };
+
+  const sendChatMessage = async (input: string, api: Window['mindgateAPI']) => {
+    if (!api) return;
+
     setState('loading');
-    setUserInput('');
     setMessages((prev) => [...prev, { role: 'user', content: input, timestamp: Date.now() }]);
+    setUserInput('');
 
     try {
       const result = await api.sendChatMessage(input);
       if (!result?.message) {
-        await showRetryMessage('MindGate did not respond. Please try again.', input);
+        await showRetryMessage('MindGate did not respond. Please try again.', '', true);
         return;
       }
 
       setIsAiThinking(false);
-
-      if (result.isApproved === null && isConnectionMessage(result.message)) {
-        await showRetryMessage(result.message, input, true);
-        return;
-      }
-
-      if (result.isApproved === false && isConnectionMessage(result.message)) {
-        await showRetryMessage(result.message, input, true);
-        return;
-      }
-
-      if (result.message) {
-        setMessages((prev) => [...prev, { role: 'ai', content: result.message, timestamp: Date.now() }]);
-      }
 
       if (result.isApproved === true) {
         const mins = result.durationMinutes || 10;
@@ -256,6 +311,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
         }
         setTimeout(() => setState('takeover'), 1500);
       } else {
+        setMessages((prev) => [...prev, { role: 'ai', content: result.message, timestamp: Date.now() }]);
         setState('chat');
         setIsInputDisabled(false);
         focusInput();
@@ -263,7 +319,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : 'Unknown error';
       const friendlyMessage = `Connection error: ${errorMsg}. Please try again.`;
-      await showRetryMessage(friendlyMessage, input);
+      await showRetryMessage(friendlyMessage, '', true);
     }
   };
 
@@ -284,7 +340,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
 
   const renderChat = () => (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      {(!aiReadinessConfirmed || !isAiReady || !isBridgeReady) && (
+      {(!isAiReady || !isBridgeReady) && (
         <div style={{ fontSize: '12px', color: 'var(--text-secondary, #a8b0bd)', lineHeight: 1.4, padding: '0 2px' }}>
           {preparingMessage}
         </div>
@@ -313,15 +369,15 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
               void handleSubmit();
             }
           }}
-          placeholder={aiReadinessConfirmed && isAiReady ? 'Tell me why you need access...' : preparingMessage || 'MindGate AI is starting...'}
+          placeholder={isAiReady ? 'Tell me why you need access...' : 'MindGate AI is warming up, please wait...'}
           className="glass-input"
-          disabled={!isBridgeReady || !isAiReady || isInputDisabled}
+          disabled={!isBridgeReady || isInputDisabled}
           rows={1}
           autoFocus
         />
         <button
           onClick={() => void handleSubmit()}
-          disabled={!isBridgeReady || !isAiReady || !userInput.trim() || isInputDisabled}
+          disabled={!isBridgeReady || isInputDisabled || !userInput.trim()}
           className="glass-btn"
         >
           Send
