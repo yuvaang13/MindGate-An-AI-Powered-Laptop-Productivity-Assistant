@@ -61,6 +61,12 @@ let isOllamaConnected: boolean = false;
 let hasRequestedPermissions: boolean = false;
 let isQuitting: boolean = false;
 
+function signalReady(): void {
+  try {
+    writeFileSync(join(tmpdir(), 'mindgate-ready'), '');
+  } catch { /* ignore */ }
+}
+
 const DEFAULT_FIRST_MESSAGE = 'What do you need access for?';
 
 function getDefaultConfiguration(): Configuration {
@@ -211,6 +217,7 @@ async function initialize() {
 
   // Check Ollama in background - don't block window creation
   checkOllamaInBackground();
+  signalReady();
 }
 
 async function createWindows(): Promise<void> {
@@ -301,6 +308,10 @@ async function createWindows(): Promise<void> {
     await Promise.race([loadPromise, timeoutPromise]);
   } catch (e) {
     console.error('[Main] Overlay window load failed:', e);
+    if (!overlayRendererLoaded) {
+      overlayRendererLoaded = true;
+      windowManager.markOverlayRendererReady();
+    }
   }
 }
 

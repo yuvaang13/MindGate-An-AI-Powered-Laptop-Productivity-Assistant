@@ -45,6 +45,7 @@ log "🚀  Launching MindGate..."
 
 SHUTDOWN_IN_PROGRESS=0
 ELECTRON_PID=""
+READY_FILE="/tmp/mindgate-ready"
 
 terminate_pid() {
   local pid="$1"
@@ -93,6 +94,23 @@ trap 'cleanup' EXIT HUP INT TERM
 node scripts/run-electron.mjs &
 ELECTRON_PID=$!
 log "📱  MindGate launcher started (PID: $ELECTRON_PID)"
+
+log "⏳  Waiting for MindGate bridge to be ready..."
+MAX_WAIT=30
+WAITED=0
+while [[ ! -f "$READY_FILE" ]]; do
+  sleep 1
+  WAITED=$((WAITED + 1))
+  if [[ $WAITED -ge $MAX_WAIT ]]; then
+    log "⚠️  Bridge did not signal ready within ${MAX_WAIT}s — check mindgate-debug.log in /tmp"
+    break
+  fi
+done
+
+if [[ -f "$READY_FILE" ]]; then
+  log "✅  MindGate bridge is ready"
+  rm -f "$READY_FILE"
+fi
 
 if [[ -n "${ELECTRON_PID:-}" ]]; then
   wait "$ELECTRON_PID"

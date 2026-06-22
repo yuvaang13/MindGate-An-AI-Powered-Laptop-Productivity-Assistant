@@ -115,15 +115,15 @@ export const waitForBridgeStatus = async (
 };
 
 export const waitForBridgeReady = async (
-  timeoutMs = 15000,
-  intervalMs = 250,
+  timeoutMs = 8000,
+  intervalMs = 150,
 ): Promise<BridgeReadiness> => {
   const startedAt = Date.now();
   let lastStatus: BridgeStatus | null = null;
   let lastReadiness: AIReadinessStatus | null = null;
 
   while (Date.now() - startedAt <= timeoutMs) {
-    const api = await waitForMindgateAPI(Math.min(1000, Math.max(100, timeoutMs - (Date.now() - startedAt))), 100);
+    const api = await waitForMindgateAPI(Math.min(800, Math.max(150, timeoutMs - (Date.now() - startedAt))), 50);
     if (!api?.getBridgeStatus || !api.getAiReadinessStatus) {
       await sleep(intervalMs);
       continue;
@@ -144,6 +144,7 @@ export const waitForBridgeReady = async (
       };
     }
 
+    // Prioritize bridge readiness - allow chat access once bridge is ready
     if (lastStatus?.ready) {
       return {
         ready: true,

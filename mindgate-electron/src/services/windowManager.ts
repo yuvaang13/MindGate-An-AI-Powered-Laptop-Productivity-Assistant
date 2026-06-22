@@ -87,6 +87,12 @@ export class WindowManager {
     }
 
     void this.overlayReadyPromise.then(() => this.finishShowOverlay());
+    setTimeout(() => {
+      if (!this.overlayRendererReady && this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.finishShowOverlay();
+      }
+    }, 5000);
+
     return true;
   }
 

@@ -123,22 +123,16 @@ export class DecisionEngine {
         elapsedMs: Date.now() - startedAt,
         ollamaReachable: true,
         modelReady: true,
-        warmupReady: false,
-        message: 'Ollama is ready. Starting MindGate model.',
+        warmupReady: true, // Start warmup immediately, mark as ready
+        message: 'MindGate AI is ready.',
         origin: ollamaStatus.origin,
         activeModel: ollamaStatus.activeModel,
         startedAt,
       });
-      console.log('[DecisionEngine] Model warmup started in background:', ollamaStatus.activeModel);
-
-      this.warmUpModelInBackground();
-
-      this.aiReadinessStatus = this.createReadinessStatus({
-        ...this.aiReadinessStatus,
-        elapsedMs: Date.now() - startedAt,
-        message: 'MindGate AI is ready.',
-      });
       console.log('[DecisionEngine] AI readiness complete:', this.aiReadinessStatus.message);
+      
+      // Start warming up model in background to ensure it's ready
+      this.warmUpModelInBackground();
 
       return this.aiReadinessStatus;
     } catch (error) {
