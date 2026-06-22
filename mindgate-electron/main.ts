@@ -524,11 +524,11 @@ ipcMain.handle('launch-app', async (_event, appName: string) => {
     }
   });
 
-  ipcMain.on('preload-ready', () => {
-    overlayPreloadReady = true;
-    dbg('[Main] preload-ready received');
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send('preload-ready-ack');
+  ipcMain.on('preload-ready', (event) => {
+    if (overlayWindow && !overlayWindow.isDestroyed() && event.sender === overlayWindow.webContents) {
+      overlayPreloadReady = true;
+      dbg('[Main] preload-ready received from overlay');
+      event.sender.send('preload-ready-ack');
       dbg('[Main] preload-ready-ack sent');
     }
   });

@@ -131,8 +131,8 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
       if (cancelled) return;
 
       if (!api) {
-        setBridgeMessage('MindGate bridge API is not available yet. Ensure the MindGate desktop app is running and loaded.');
-        setPreparingMessage('MindGate bridge API is not available yet. Ensure the MindGate desktop app is running and loaded.');
+        setBridgeMessage('MindGate bridge is still starting. Please wait a moment...');
+        setPreparingMessage('MindGate bridge is still starting. Please wait a moment...');
         setIsBridgeReady(false);
         bridgeRetryTimer = setTimeout(waitForBridge, 1000);
         return;
@@ -208,7 +208,7 @@ export const LiquidGlassOverlay = forwardRef<OverlayHandle, OverlayProps>(({
     if (!api) {
       api = await waitForMindgateAPI(8000, 100);
       if (!api) {
-        await showRetryMessage('MindGate bridge API is not available yet. Ensure the MindGate desktop app is running.', input, true);
+        await showRetryMessage('MindGate bridge is still starting. Please wait a moment.', input, true);
         return;
       }
     }

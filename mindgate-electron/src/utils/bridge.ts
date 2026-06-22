@@ -74,18 +74,18 @@ export const waitForMindgateAPI = async (
     const status = getMindgateBridgeStatus();
 
     if (status.hasApi) {
-      // Only consider ready if in Electron and preload is actually ready
       if (status.isElectron && status.isPreloadReady) {
         console.log('[Bridge] API is available, preload is ready - returning API');
         return window.mindgateAPI;
       } else if (status.isElectron && status.hasApi && !status.isPreloadReady) {
         console.log('[Bridge] API is available but preload is still starting, waiting...');
       } else if (!status.isElectron) {
-        // In browser context, having the API is sufficient
         console.log('[Bridge] API is available in browser context, returning');
         return window.mindgateAPI;
       }
     }
+
+    console.debug('[Bridge] Polling... hasApi:', status.hasApi, 'isPreloadReady:', status.isPreloadReady, 'window.mindgateAPI type:', typeof window.mindgateAPI);
 
     if (status.hasReadyFlag && !status.hasApi && !warnedAboutReadyWithoutApi) {
       warnedAboutReadyWithoutApi = true;
